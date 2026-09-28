@@ -1,6 +1,6 @@
 import type { BeatClock } from "../audio/clock";
 import { type EnemySpec, enemyStats, fightBpm } from "../core/battle";
-import type { Item } from "../core/items";
+import type { Item, Relic } from "../core/items";
 import { type Character, startItems, startRelics } from "../core/characters";
 import { GOAL_ROUNDS, REST_HEAL, REST_PRICE, type Run, sellPrice } from "../core/run";
 import type { ClearRecord } from "../game/progress";
@@ -37,7 +37,11 @@ export function enemyName(spec: EnemySpec): string {
 }
 
 export function enemyRank(spec: EnemySpec): string {
-  return t(`rank${spec.rank}` as Parameters<typeof t>[0]);
+  return spec.elite ? `${t("eliteTag")}・${t(`rank${spec.rank}` as Parameters<typeof t>[0])}` : t(`rank${spec.rank}` as Parameters<typeof t>[0]);
+}
+
+export function personalityName(spec: EnemySpec): string {
+  return t(`personality_${spec.personality}` as Parameters<typeof t>[0]);
 }
 
 /** Full-screen overlay panels. Enter presses the panel's primary button. */
@@ -249,18 +253,20 @@ export class Screens {
     const e = run.enemy;
     const stats = enemyStats(e);
     const relics = e.relics.length ? e.relics.map(itemRow).join("") : `<p class="muted">${t("none")}</p>`;
-    const panel = h(`<div class="panel intro-panel" style="--accent:${e.color}">
-      <div class="intro-head"><span class="vs">${t("introVs")}</span><span class="round-chip">${roundLabel(run)}</span></div>
+    const panel = h(`<div class="panel intro-panel ${e.elite ? "elite" : ""}" style="--accent:${e.color}">
+      <div class="intro-head"><span class="vs">${e.elite ? `<span class="elite-tag">⚠ ${t("eliteTag")}</span>` : t("introVs")}</span><span class="round-chip">${roundLabel(run)}</span></div>
       <div class="intro-body">
         <div class="avatar" style="background:${e.color}"><span>${escape(enemyName(e).slice(-1))}</span></div>
         <div class="intro-info">
           <div class="intro-name">${escape(enemyName(e))}</div>
           <div class="rank-tag">${escape(enemyRank(e))}</div>
+          <div class="personality"><span class="personality-name">${escape(personalityName(e))}</span><span class="personality-hint">${escape(t(`personality_${e.personality}_hint` as Parameters<typeof t>[0]))}</span></div>
           <dl class="stats">
             <dt>${t("hp")}</dt><dd class="hearts">${pips(stats.maxHp, stats.maxHp, "heart", "heart empty")}</dd>
             <dt>${t("energy")}</dt><dd class="energy">${pips(stats.startEnergy, stats.maxEnergy, "lemon", "lemon empty")}</dd>
             <dt>${t("tempo")}</dt><dd>♩ ${fightBpm(e, run.relics)}</dd>
             <dt>${t("tellRate")}</dt><dd>${Math.round(e.tellChance * 100)}%</dd>
+            ${e.chargeBonus > 0 ? `<dt>${t("action_charge")}</dt><dd class="warn">${t("chargeBonusNote")}</dd>` : ""}
           </dl>
         </div>
       </div>
@@ -286,8 +292,31 @@ export class Screens {
     ], "dim clear");
   }
 
-  victory(gold: number, onNext: () => void): void {
-    const panel = h(`<div class="panel banner-panel win"><h1>${t("win")}</h1><p>${t("reward", gold)}</p></div>`);
+  /** Free relic after an elite: pick one of the offered relics, or none. */
+  relicPick(relics: Relic[], onPick: (index: number) => void): void {
+    const cards = relics
+      .map((r, i) => `<button class="shop-card relic" data-pick="${i}"><span class="item-icon big">${r.icon}</span><span class="item-name">${escape(itemName(r.id))}</span>${r.series ? `<span class="series-chip series-${r.series}">${escape(seriesLabel(r))}</span>` : ""}<span class="item-desc">${escape(itemDesc(r.id))}</span></button>`)
+      .join("");
+    const panel = h(`<div class="panel pick-panel"><h2>🎁 ${t("pickTitle")}</h2><div class="stock pick">${cards}</div></div>`);
+    panel.querySelectorAll<HTMLElement>("[data-pick]").forEach((b) =>
+      b.addEventListener("click", () => {
+        this.sfx();
+        onPick(Number(b.dataset.pick));
+      }),
+    );
+    this.show(panel, [{ label: t("pickSkip"), onClick: () => onPick(-1), ghost: true }], "dim");
+    this.keyHandler = (e) => {
+      const n = Number(e.key);
+      if (n >= 1 && n <= relics.length) {
+        onPick(n - 1);
+        return true;
+      }
+      return false;
+    };
+  }
+
+  victory(gold: number, elite: boolean, onNext: () => void): void {
+    const panel = h(`<div class="panel banner-panel win"><h1>${t("win")}</h1><p>${elite ? t("eliteReward", gold) : t("reward", gold)}</p></div>`);
     this.show(panel, [{ label: t("toShop"), onClick: onNext, primary: true }], "dim");
   }
 

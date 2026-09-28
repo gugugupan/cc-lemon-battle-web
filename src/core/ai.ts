@@ -8,6 +8,10 @@ export interface AiParams {
   randomness: number;
   historyWindow: number;
   lowHpRatio: number;
+  /** Multiplies the special's weight. */
+  specialBias: number;
+  /** Added to the attack weight right after this enemy blocked a hit (guard, then strike back). */
+  counterBias: number;
 }
 
 export const DEFAULT_AI: AiParams = {
@@ -17,6 +21,27 @@ export const DEFAULT_AI: AiParams = {
   randomness: 0.15,
   historyWindow: 5,
   lowHpRatio: 0.34,
+  specialBias: 1,
+  counterBias: 0,
+};
+
+export type Personality = "brawler" | "guardian" | "charger" | "reader" | "wild";
+
+export const PERSONALITIES: Personality[] = ["brawler", "guardian", "charger", "reader", "wild"];
+
+/**
+ * How each personality bends the shared brain. Multipliers apply to the fight's scaled
+ * parameters; `chargeBonus` is extra energy per charge and `tellMult` scales the tell chance.
+ */
+export const PERSONALITY_TUNING: Record<
+  Personality,
+  { aggression: number; caution: number; readSkill: number; randomness: number; specialBias: number; counterBias: number; historyWindow: number; chargeBonus: number; tellMult: number }
+> = {
+  brawler: { aggression: 1.4, caution: 0.5, readSkill: 0.8, randomness: 1, specialBias: 0.9, counterBias: 0, historyWindow: 5, chargeBonus: 0, tellMult: 1 },
+  guardian: { aggression: 0.8, caution: 1.8, readSkill: 1, randomness: 1, specialBias: 1, counterBias: 1.6, historyWindow: 5, chargeBonus: 0, tellMult: 1 },
+  charger: { aggression: 0.8, caution: 1, readSkill: 1, randomness: 1, specialBias: 1.8, counterBias: 0, historyWindow: 5, chargeBonus: 1, tellMult: 1 },
+  reader: { aggression: 1, caution: 1, readSkill: 1.8, randomness: 0.5, specialBias: 1, counterBias: 0, historyWindow: 8, chargeBonus: 0, tellMult: 0.8 },
+  wild: { aggression: 1.1, caution: 0.8, readSkill: 0.5, randomness: 2.2, specialBias: 1, counterBias: 0, historyWindow: 5, chargeBonus: 0, tellMult: 1.4 },
 };
 
 const MIN_WEIGHT = 0.05;
@@ -55,6 +80,8 @@ function tally(list: readonly ActionId[]): Map<ActionId, number> {
 export interface AiMemory {
   /** The enemy's last action landed damage on the player. */
   lastHit: boolean;
+  /** The enemy's last round blocked the player's attack. */
+  lastGuarded?: boolean;
 }
 
 /** Moves the enemy may pick. Hard rules: never guard an opponent who can't attack, never charge at full. */
@@ -88,9 +115,14 @@ function weighted(self: Fighter, foe: Fighter, foeHistory: readonly ActionId[], 
     charge: 0.7 + (self.energy === 0 ? 0.6 : 0) + (self.energy === 2 ? 0.4 * p.aggression : 0) + (threat ? 0 : 0.5) - (expectsHit ? 0.5 * p.readSkill : 0),
     guard: (0.15 + (threat ? 0.5 * p.caution : 0) + (expectsHit ? 1.0 * p.readSkill : 0)) * (lowHp && threat ? 1.4 : 1) * (foeFull ? 2.5 : 1),
     attack:
-      (1.1 + (threat ? 0 : 0.7) + (predicted === "charge" ? 1.2 * p.readSkill : 0) - (predicted === "guard" ? 0.4 * p.readSkill : 0) + (memory.lastHit ? 0.8 : 0)) *
+      (1.1 +
+        (threat ? 0 : 0.7) +
+        (predicted === "charge" ? 1.2 * p.readSkill : 0) -
+        (predicted === "guard" ? 0.4 * p.readSkill : 0) +
+        (memory.lastHit ? 0.8 : 0) +
+        (memory.lastGuarded ? p.counterBias : 0)) *
       p.aggression,
-    special: (3.2 + (predicted === "guard" || predicted === "charge" ? p.readSkill : 0) + (memory.lastHit ? 0.5 : 0)) * p.aggression,
+    special: (3.2 + (predicted === "guard" || predicted === "charge" ? p.readSkill : 0) + (memory.lastHit ? 0.5 : 0) + (memory.lastGuarded ? p.counterBias : 0)) * p.aggression * p.specialBias,
   };
   return rng.weighted(moves.map((a) => [a, Math.max(MIN_WEIGHT, weight[a])] as [ActionId, number]));
 }

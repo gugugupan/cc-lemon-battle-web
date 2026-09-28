@@ -197,7 +197,7 @@ describe("run", () => {
   it("gives enemies more relics, from stronger tiers, as the run goes on", () => {
     const rng = new Rng(3);
     expect(enemyFor(1, rng).relics.length).toBe(0);
-    expect(enemyFor(5, rng).relics.length).toBe(0);
+    expect(enemyFor(4, rng).relics.length).toBe(0);
     expect(enemyFor(6, rng).relics.length).toBe(1);
     expect(enemyFor(26, rng).relics.length).toBe(6);
     for (let i = 0; i < 50; i++) {
@@ -210,6 +210,36 @@ describe("run", () => {
 
   it("widens the pool of tell lines as the run goes on", () => {
     expect([1, 2, 3, 4, 5, 9, 20].map(tellVariety)).toEqual([1, 1, 2, 2, 3, 5, 5]);
+  });
+
+  it("makes every fifth fight an elite with a free relic pick and double gold", () => {
+    const rng = new Rng(4);
+    const normal = enemyFor(9, rng);
+    const elite = enemyFor(10, rng);
+    expect(normal.elite).toBe(false);
+    expect(elite.elite).toBe(true);
+    expect(elite.maxHp).toBeGreaterThan(normal.maxHp);
+    const run = new Run(2);
+    run.round = 5;
+    run.enemy = enemyFor(5, run.rng);
+    const gold = run.finishBattle(true, 5);
+    expect(gold).toBe(run.goldFor(5) * 2);
+    expect(run.relicPick.length).toBe(3);
+    const taken = run.takePick(1);
+    expect(run.relics).toContain(taken);
+    expect(run.relicPick.length).toBe(0);
+  });
+
+  it("charges for 2 from fight 8, and chargers always do", () => {
+    const rng = new Rng(5);
+    for (let i = 0; i < 40; i++) {
+      const early = enemyFor(3, rng);
+      expect(early.chargeBonus).toBe(early.personality === "charger" ? 1 : 0);
+      expect(enemyFor(8, rng).chargeBonus).toBe(1);
+    }
+    const e = { hp: 5, maxHp: 5, energy: 0, maxEnergy: 3 };
+    resolve({ hp: 5, maxHp: 5, energy: 0, maxEnergy: 3 }, "guard", e, "charge", { enemyChargeBonus: 1 });
+    expect(e.energy).toBe(2);
   });
 
   it("clears after 20 wins, then goes on as endless mode", () => {

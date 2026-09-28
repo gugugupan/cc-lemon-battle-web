@@ -85,6 +85,8 @@ export interface RoundRules {
   playerCostAdjust: CostAdjust;
   /** The player takes no damage this round. */
   playerShielded: boolean;
+  /** Extra energy the enemy gains when it charges. */
+  enemyChargeBonus: number;
 }
 
 export const DEFAULT_RULES: RoundRules = {
@@ -97,6 +99,7 @@ export const DEFAULT_RULES: RoundRules = {
   enemyNullified: false,
   playerCostAdjust: {},
   playerShielded: false,
+  enemyChargeBonus: 0,
 };
 
 function side(action: ActionId, energyBefore: number): SideOutcome {
@@ -116,7 +119,7 @@ export function resolve(p: Fighter, pa: ActionId, e: Fighter, ea: ActionId, part
   es.whiffed = es.nullified || !canAfford(e, ea);
 
   if (!ps.whiffed) p.energy = clamp(p.energy - costOf(pa, rules.playerCostAdjust), 0, p.maxEnergy);
-  if (!es.whiffed) e.energy = clamp(e.energy - costOf(ea), 0, e.maxEnergy);
+  if (!es.whiffed) e.energy = clamp(e.energy - costOf(ea) + (ea === "charge" ? rules.enemyChargeBonus : 0), 0, e.maxEnergy);
 
   const pAtk = ps.whiffed ? 0 : ACTIONS[pa].attack;
   const pDef = ps.whiffed ? 0 : ACTIONS[pa].defense + (pa === "guard" ? rules.playerGuardBonus : 0);

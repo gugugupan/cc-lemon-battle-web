@@ -1,4 +1,4 @@
-import { DEFAULT_AI } from "./ai";
+import { DEFAULT_AI, type Personality, PERSONALITY_TUNING } from "./ai";
 import { type Character, CHARACTERS, startItems, startRelics } from "./characters";
 import type { EnemySpec, Loadout } from "./battle";
 import { type Consumable, CONSUMABLES, ENEMY_RELICS, type Item, type Relic, RELICS } from "./items";
@@ -42,36 +42,63 @@ export interface StockEntry {
   sold: boolean;
 }
 
+/** Every n-th fight is an elite: tougher, and its reward includes a free relic pick. */
+export const ELITE_EVERY = 5;
+/** From this fight on every enemy gets +1 energy per charge (chargers always do). */
+export const STRONG_CHARGE_FROM = 8;
+export const RELIC_PICK_SIZE = 3;
+
+/** Personality odds by stage: easy-to-read styles early, the reader later. */
+function personalityFor(n: number, rng: Rng): Personality {
+  const weights: [Personality, number][] =
+    n <= 4
+      ? [["brawler", 35], ["wild", 35], ["guardian", 15], ["charger", 15], ["reader", 0]]
+      : n <= 10
+        ? [["brawler", 25], ["wild", 20], ["guardian", 20], ["charger", 20], ["reader", 15]]
+        : [["brawler", 20], ["wild", 10], ["guardian", 20], ["charger", 20], ["reader", 30]];
+  return rng.weighted(weights);
+}
+
 /**
  * Enemy for the n-th fight (1-based). Everything ramps with n: more HP, faster tempo, a sharper
  * and more aggressive brain, fewer tells, more energy, and a relic from the sixth fight on (one
- * more every fourth fight, up to six), drawn from stronger tiers as the run goes.
+ * more every fourth fight, up to six), drawn from stronger tiers as the run goes. Each enemy has
+ * a personality that bends its brain; every fifth fight is an elite.
  */
 export function enemyFor(n: number, rng: Rng, playerModel = ""): EnemySpec {
   const k = n - 1;
-  const relicCount = Math.min(MAX_ENEMY_RELICS, Math.max(0, Math.floor((k - 1) / 4)));
+  const elite = n % ELITE_EVERY === 0;
+  const relicCount = Math.min(MAX_ENEMY_RELICS, Math.max(0, Math.floor((k - 1) / 4)) + (elite && n >= 10 ? 1 : 0));
   const tier = n >= 10 ? 3 : n >= 6 ? 2 : 1;
   const nameIndex = rng.int(0, ENEMY_NAME_COUNT - 1);
   const body = NAME_BODIES[nameIndex];
+  const personality = personalityFor(n, rng);
+  const p = PERSONALITY_TUNING[personality];
   return {
     nameIndex,
+    personality,
+    elite,
+    chargeBonus: Math.min(1, p.chargeBonus + (n >= STRONG_CHARGE_FROM ? 1 : 0)),
     model: rng.pick((body === "any" ? [...MODELS.male, ...MODELS.female] : MODELS[body]).filter((m) => m !== playerModel)),
     rank: Math.min(RANK_COUNT - 1, Math.floor(k / 3)),
     color: rng.pick(ENEMY_COLORS),
-    maxHp: Math.min(9, 3 + Math.floor(k / 5)),
+    maxHp: Math.min(11, 3 + Math.floor(k / 5) + (elite ? (n >= 10 ? 2 : 1) : 0)),
     maxEnergy: n >= 10 ? 4 : 3,
     startEnergy: n >= 12 ? 2 : n >= 6 ? 1 : 0,
-    tellChance: Math.max(0.25, 0.5 - 0.015 * k),
+    tellChance: Math.min(0.9, Math.max(0.25, 0.5 - 0.015 * k) * p.tellMult),
     tellAccuracy: Math.max(0.6, 0.8 - 0.015 * k),
     ai: {
       ...DEFAULT_AI,
-      aggression: Math.min(1.8, 1.0 + 0.05 * k),
-      readSkill: Math.min(1.3, 0.3 + 0.04 * k),
-      caution: 0.8,
-      randomness: Math.max(0.05, 0.35 - 0.02 * k),
+      aggression: Math.min(1.8, 1.0 + 0.05 * k) * p.aggression * (elite ? 1.05 : 1),
+      readSkill: Math.min(1.3, 0.3 + 0.04 * k) * p.readSkill,
+      caution: 0.8 * p.caution,
+      randomness: Math.min(0.6, Math.max(0.05, 0.35 - 0.02 * k) * p.randomness),
+      specialBias: p.specialBias,
+      counterBias: p.counterBias,
+      historyWindow: p.historyWindow,
     },
     relics: rng.shuffle(ENEMY_RELICS.filter((r) => (r.tier ?? 1) <= tier)).slice(0, relicCount),
-    bpm: Math.min(150, 92 + 3 * k),
+    bpm: Math.min(156, 92 + 3 * k + (elite ? 6 : 0)),
   };
 }
 
@@ -88,6 +115,8 @@ export class Run {
   enemy: EnemySpec;
   /** Set once the player chooses to keep going after the goal. */
   endless = false;
+  /** Relics offered for free after beating an elite; empty otherwise. */
+  relicPick: Relic[] = [];
   /** Called after every successful purchase (the app uses it for purchase-based unlocks). */
   onPurchase: (item: Item) => void = () => {};
 
@@ -118,11 +147,15 @@ export class Run {
     return 15 + 3 * n;
   }
 
-  /** Returns the gold won; after a win the next enemy is rolled and the shop restocked. */
+  /**
+   * Returns the gold won; after a win the next enemy is rolled and the shop restocked. Beating an
+   * elite doubles the gold and offers a free relic pick (`relicPick`).
+   */
   finishBattle(won: boolean, hpLeft: number): number {
     this.hp = Math.max(0, Math.min(this.maxHp, hpLeft));
     if (!won) return 0;
-    const gold = this.goldFor(this.round);
+    const gold = this.goldFor(this.round) * (this.enemy.elite ? 2 : 1);
+    this.relicPick = this.enemy.elite ? this.rng.shuffle(RELICS.filter((r) => !this.hasRelic(r.id))).slice(0, RELIC_PICK_SIZE) : [];
     this.gold += gold;
     this.hp = Math.min(this.maxHp, this.hp + VICTORY_HEAL);
     this.round++;
@@ -158,7 +191,15 @@ export class Run {
     return "ok";
   }
 
-  canRest(): boolean {
+  /** Takes one relic from the elite reward (or none, with -1). */
+  takePick(index: number): Relic | null {
+    const relic = this.relicPick[index] ?? null;
+    if (relic) this.relics.push(relic);
+    this.relicPick = [];
+    return relic;
+  }
+
+    canRest(): boolean {
     return this.hp < this.maxHp;
   }
 

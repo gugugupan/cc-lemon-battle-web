@@ -1,4 +1,4 @@
-import { type AiParams, decide, rollTell } from "./ai";
+import { type AiParams, decide, type Personality, rollTell } from "./ai";
 import {
   combineMods,
   type Consumable,
@@ -25,6 +25,12 @@ export const MAX_BPM = 260;
 
 export interface EnemySpec {
   nameIndex: number;
+  /** Fighting style, shown on the intro card. */
+  personality: Personality;
+  /** Every fifth fight: tougher, with a relic pick as the reward. */
+  elite: boolean;
+  /** Extra energy this enemy gains per charge. */
+  chargeBonus: number;
   /** Character model file name (without extension) under public/models. */
   model: string;
   rank: number;
@@ -112,6 +118,7 @@ export class Battle {
   private playerSequence: (ActionId | "wait")[] = [];
   private nextHitBonus = 0;
   private enemyLastHit = false;
+  private enemyLastGuarded = false;
   private shieldNext = false;
   private tellNextBar = false;
   readonly costs: CostAdjust;
@@ -241,6 +248,7 @@ export class Battle {
       enemyNullified: this.nullifyNext,
       playerCostAdjust: this.costs,
       playerShielded: this.shieldNext,
+      enemyChargeBonus: this.spec.chargeBonus,
     });
     this.nextHitBonus = 0;
     this.shieldNext = false;
@@ -252,6 +260,7 @@ export class Battle {
     this.playerSequence.push(action);
     this.pendingRound = result;
     this.enemyLastHit = result.enemy.damageDealt > 0;
+    this.enemyLastGuarded = result.enemy.guarded;
     this.emit({ type: "reveal", result });
     // The combo (and so FEVER, and relics reacting to it) moves after the round resolves, so a
     // FEVER-start effect never changes the action that triggered it.
@@ -295,7 +304,7 @@ export class Battle {
   }
 
   private decideEnemy(): ActionId {
-    return decide(this.enemy, this.player, this.playerHistory, this.spec.ai, this.rng, { lastHit: this.enemyLastHit });
+    return decide(this.enemy, this.player, this.playerHistory, this.spec.ai, this.rng, { lastHit: this.enemyLastHit, lastGuarded: this.enemyLastGuarded });
   }
 
   private trackPerfect(grade: Grade): void {

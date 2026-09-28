@@ -7,7 +7,7 @@ import { type Character, CHARACTERS, characterById, isUnlocked } from "../core/c
 import { Run, tellVariety } from "../core/run";
 import { currentLang, setLang, t } from "../i18n";
 import { Hud, itemName } from "../view/hud";
-import { enemyName, enemyRank, roundLabel, Screens } from "../view/screens";
+import { enemyName, personalityName, roundLabel, Screens } from "../view/screens";
 import { loadBest, loadBests, loadBought, loadClear, loadLastCharacter, recordBought, recordClear, saveBestFor, saveLastCharacter } from "./progress";
 import { Stage } from "../view/stage";
 
@@ -185,7 +185,7 @@ export class App {
     this.battle = battle;
     this.hud.show(true);
     this.hud.hideTell();
-    this.hud.setNames(enemyName(spec), enemyRank(spec), spec.color);
+    this.hud.setNames(enemyName(spec), `${personalityName(spec)}${spec.elite ? ` ${t("eliteTag")}` : ""}`, spec.color);
     this.hud.setRound(roundLabel(run), battle.bpm);
     this.hud.setItemsLocked(battle.itemsLocked);
     this.hud.setCosts((a) => battle.costOf(a));
@@ -393,7 +393,14 @@ export class App {
     if (won) {
       this.clock.synth.win();
       this.clock.synth.coin();
-      this.screens.victory(gold, () => this.openShop(run));
+      const elite = run.relicPick.length > 0;
+      this.screens.victory(gold, elite, () => {
+        if (!elite) return this.openShop(run);
+        this.screens.relicPick(run.relicPick, (i) => {
+          run.takePick(i);
+          this.openShop(run);
+        });
+      });
       return;
     }
     this.clock.synth.lose();

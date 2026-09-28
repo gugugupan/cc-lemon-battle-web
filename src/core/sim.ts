@@ -81,6 +81,7 @@ export function simulateRun(character: Character, strategy: Strategy, perfectRat
     run.slots = result.slotsLeft;
     run.finishBattle(result.won, result.hpLeft);
     if (!result.won) break;
+    if (run.relicPick.length) run.takePick(shopper.int(0, run.relicPick.length - 1));
     while (run.hp < run.maxHp - 1 && run.rest() === "ok");
     for (const i of shopper.shuffle(run.stock.map((_, i) => i))) {
       const entry = run.stock[i];
