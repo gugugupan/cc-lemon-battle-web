@@ -216,7 +216,7 @@ describe("run", () => {
     expect(run.sellRelic(3)).toBe(0);
   });
 
-  it("buys items and services with gold", () => {
+  it("buys items and rests with gold", () => {
     const run = new Run(1);
     run.rollShop();
     run.gold = 200;
@@ -224,11 +224,16 @@ describe("run", () => {
     expect(run.buy(relicIndex)).toBe("ok");
     expect(run.buy(relicIndex)).toBe("sold_out");
     expect(run.relics.length).toBe(1);
-    expect(run.buyService("slot")).toBe("ok");
-    expect(run.buyService("slot")).toBe("ok");
-    expect(run.buyService("slot")).toBe("maxed");
+    expect(run.slots.length).toBe(4);
+    expect(run.rest()).toBe("maxed");
+    run.hp = 3;
+    expect(run.rest()).toBe("ok");
+    expect(run.rest()).toBe("ok");
+    expect(run.hp).toBe(5);
+    expect(run.rest()).toBe("maxed");
+    run.hp = 4;
     run.gold = 0;
-    expect(run.buyService("maxHp")).toBe("no_gold");
+    expect(run.rest()).toBe("no_gold");
   });
 });
 

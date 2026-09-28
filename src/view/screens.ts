@@ -1,7 +1,7 @@
 import type { BeatClock } from "../audio/clock";
 import { type EnemySpec, enemyStats, fightBpm } from "../core/battle";
 import type { Item } from "../core/items";
-import { type Run, sellPrice, SERVICES, type ServiceId } from "../core/run";
+import { REST_HEAL, REST_PRICE, type Run, sellPrice } from "../core/run";
 import { t } from "../i18n";
 import { itemDesc, itemName, pips, seriesLabel } from "./hud";
 import { attachTooltip, hideTooltip } from "./tooltip";
@@ -204,9 +204,11 @@ export class Screens {
             <span class="price">${s.sold ? t("sold") : t("buy", s.item.price)}</span></button>`;
         })
         .join("");
-      const services = (Object.keys(SERVICES) as ServiceId[])
-        .map((id) => `<button class="service" data-service="${id}" ${run.serviceAvailable(id) ? "" : "disabled"}><span>${t(`svc_${id}`)}</span><span class="price">${t("buy", SERVICES[id].price)}</span></button>`)
-        .join("");
+      const rest = `<button class="shop-card rest ${run.canRest() ? "" : "sold"}" data-rest ${run.canRest() ? "" : "disabled"}>
+            <span class="item-icon big">🛏️</span>
+            <span class="item-name">${t("restName")}</span>
+            <span class="item-desc">${t("restDesc", REST_HEAL)}</span>
+            <span class="price">${run.canRest() ? t("buy", REST_PRICE) : t("hpFull")}</span></button>`;
       const slots = run.slots
         .map((s, i) => `<button class="slot ${s ? "" : "empty"} ${selected === i ? "selected" : ""}" data-slot="${i}"><span class="slot-key">${i + 1}</span><span class="slot-icon">${s?.icon ?? ""}</span></button>`)
         .join("");
@@ -219,8 +221,7 @@ export class Screens {
       const panel = h(`<div class="panel shop-panel">
         <div class="shop-head"><h2>🏪 ${t("shop")}</h2><div class="gold">🪙 ${t("gold", run.gold)}</div></div>
         <p class="muted">${t("shopHint")}</p>
-        <div class="stock">${stock}</div>
-        <h3>${t("services")}</h3><div class="services">${services}</div>
+        <div class="stock">${rest}${stock}</div>
         <h3>${t("owned")}</h3>
         <div class="owned"><div class="hearts">${pips(run.hp, run.maxHp, "heart", "heart empty")}</div><div class="slots">${slots}</div></div>
         <div class="sell-list">${owned}</div>
@@ -235,9 +236,9 @@ export class Screens {
           render();
         }),
       );
-      panel.querySelectorAll<HTMLElement>("[data-service]").forEach((b) =>
+      panel.querySelectorAll<HTMLElement>("[data-rest]").forEach((b) =>
         b.addEventListener("click", () => {
-          const result = run.buyService(b.dataset.service as ServiceId);
+          const result = run.rest();
           message = t(result);
           feedback(result === "ok");
           render();

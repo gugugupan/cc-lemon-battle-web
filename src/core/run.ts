@@ -5,8 +5,7 @@ import { Rng } from "./rng";
 
 export const START_HP = 5;
 export const START_GOLD = 20;
-export const START_SLOTS = 2;
-export const MAX_SLOTS = 4;
+export const SLOTS = 4;
 export const VICTORY_HEAL = 1;
 export const ENEMY_NAME_COUNT = 12;
 export const MAX_ENEMY_RELICS = 6;
@@ -27,12 +26,9 @@ const MODELS = {
 export const RANK_COUNT = 5;
 export const ENEMY_COLORS = ["#ff8a80", "#8bd17c", "#f6a5c0", "#ffcc66", "#9fa8ff", "#6fd6d0", "#c792ea", "#ffab70"];
 
-export const SERVICES = {
-  heal: { price: 10 },
-  maxHp: { price: 40 },
-  slot: { price: 50 },
-} as const;
-export type ServiceId = keyof typeof SERVICES;
+/** The shop's always-available rest: pay to recover HP. */
+export const REST_PRICE = 10;
+export const REST_HEAL = 1;
 
 export type Purchase = "ok" | "no_gold" | "bag_full" | "sold_out" | "maxed";
 
@@ -86,7 +82,7 @@ export class Run {
   maxHp = START_HP;
   gold = START_GOLD;
   relics: Relic[] = [];
-  slots: (Consumable | null)[] = new Array(START_SLOTS).fill(null);
+  slots: (Consumable | null)[] = new Array(SLOTS).fill(null);
   stock: StockEntry[] = [];
   enemy: EnemySpec;
 
@@ -147,33 +143,16 @@ export class Run {
     return "ok";
   }
 
-  serviceAvailable(id: ServiceId): boolean {
-    switch (id) {
-      case "heal":
-        return this.hp < this.maxHp;
-      case "maxHp":
-        return true;
-      case "slot":
-        return this.slots.length < MAX_SLOTS;
-    }
+  canRest(): boolean {
+    return this.hp < this.maxHp;
   }
 
-  buyService(id: ServiceId): Purchase {
-    if (!this.serviceAvailable(id)) return "maxed";
-    if (this.gold < SERVICES[id].price) return "no_gold";
-    this.gold -= SERVICES[id].price;
-    switch (id) {
-      case "heal":
-        this.hp = Math.min(this.maxHp, this.hp + 1);
-        break;
-      case "maxHp":
-        this.maxHp++;
-        this.hp++;
-        break;
-      case "slot":
-        this.slots.push(null);
-        break;
-    }
+  /** Pays to recover HP; can be bought again and again until HP is full. */
+  rest(): Purchase {
+    if (!this.canRest()) return "maxed";
+    if (this.gold < REST_PRICE) return "no_gold";
+    this.gold -= REST_PRICE;
+    this.hp = Math.min(this.maxHp, this.hp + REST_HEAL);
     return "ok";
   }
 

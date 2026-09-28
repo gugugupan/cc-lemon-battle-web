@@ -696,7 +696,6 @@ i.lemon.empty {
 
 .btn:focus-visible,
 .shop-card:focus-visible,
-.service:focus-visible,
 .slot:focus-visible {
   outline: 3px solid var(--sky);
   outline-offset: 2px;
@@ -972,6 +971,16 @@ i.lemon.empty {
   transform: translateY(-3px);
 }
 
+.shop-card.rest {
+  background: linear-gradient(160deg, #ebfbee 0%, #d3f9d8 100%);
+  box-shadow: 0 4px 0 #8ce99a, inset 0 0 0 2px #b2f2bb;
+}
+
+.shop-card.rest .price {
+  background: #37b24d;
+  color: #fff;
+}
+
 .shop-card.relic {
   position: relative;
   background: linear-gradient(160deg, #f3edff 0%, #e2d6ff 100%);
@@ -1054,31 +1063,6 @@ i.lemon.empty {
   background: var(--lemon);
   padding: 2px 12px;
   border-radius: 99px;
-}
-
-.services {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 8px;
-}
-
-.service {
-  border: none;
-  background: #fff;
-  border-radius: 14px;
-  padding: 10px 14px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  font-weight: 800;
-  box-shadow: 0 3px 0 var(--line);
-  text-align: left;
-}
-
-.service:disabled {
-  opacity: 0.4;
-  cursor: default;
 }
 
 .owned {
