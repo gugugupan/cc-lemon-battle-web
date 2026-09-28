@@ -182,7 +182,7 @@ export const RELICS: Relic[] = [
   { id: "tea_break", series: "general", kind: "relic", icon: "🍵", price: 30, mods: { restBars: true } },
   { id: "hot_blood", series: "fever", kind: "relic", icon: "🔥", price: 55, mods: { feverDamageBonus: 1 }, triggers: [{ on: "fever_end", effects: [{ type: "hurtSelf", amount: 1 }] }] },
   { id: "follow_up", series: "combo", kind: "relic", icon: "⏭️", price: 35, triggers: [{ on: "hit", when: [{ type: "used", action: "attack" }, { type: "prev", action: "attack" }, { type: "foeUsed", action: "charge" }], effects: [{ type: "damage", amount: 1 }] }] },
-  { id: "persistence", series: "combo", kind: "relic", icon: "💪", price: 30, triggers: [{ on: "round", when: [{ type: "used", action: "attack" }, { type: "prev", action: "attack" }, { type: "blocked" }], effects: [{ type: "energy", amount: 1 }] }] },
+  { id: "persistence", series: "combo", kind: "relic", icon: "💪", price: 30, triggers: [{ on: "round", when: [{ type: "used", action: "attack" }, { type: "prev", action: "attack" }, { type: "blocked" }, { type: "upTo", n: 2 }], effects: [{ type: "energy", amount: 1 }] }] },
   { id: "triple", series: "combo", kind: "relic", icon: "3️⃣", price: 50, triggers: [{ on: "hit", when: [{ type: "chainEvery", action: "attack", n: 3 }], effects: [{ type: "damage", amount: 1 }] }] },
   { id: "finisher", series: "combo", kind: "relic", icon: "🏁", price: 45, triggers: [{ on: "hit", when: [{ type: "used", action: "special" }, { type: "prevChain", action: "attack", n: 2 }], effects: [{ type: "damage", amount: 1 }] }] },
   { id: "counter", series: "guard", kind: "relic", icon: "↩️", price: 55, triggers: [{ on: "guarded", when: [{ type: "hasEnergy", n: 1 }], effects: [{ type: "spend", amount: 1 }, { type: "damage", amount: 1 }] }] },

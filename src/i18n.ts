@@ -225,7 +225,7 @@ const STRINGS = {
   item_follow_up: { ja: "追い打ち", zh: "追击" },
   item_follow_up_desc: { ja: "攻撃のあと続けて攻撃し、ため中の相手に当たるとダメージ +1。", zh: "上回合攻击、这回合再攻击，打中正在蓄力的对手时伤害 +1。" },
   item_persistence: { ja: "不屈", zh: "不屈" },
-  item_persistence_desc: { ja: "続けて攻撃したのに防がれたら、エネルギー +1。", zh: "连续攻击被防御挡下时，能量 +1。" },
+  item_persistence_desc: { ja: "続けて攻撃したのに防がれたら、エネルギー +1（1 戦に 2 回まで）。", zh: "连续攻击被防御挡下时，能量 +1（每场最多 2 次）。" },
   item_triple: { ja: "三連打", zh: "三连拳" },
   item_triple_desc: { ja: "3 回連続の攻撃が当たるとダメージ +1。", zh: "连续第 3 次攻击命中时，伤害 +1。" },
   item_finisher: { ja: "フィニッシュ", zh: "终结技" },

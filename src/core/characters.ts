@@ -21,12 +21,12 @@ export interface Character {
 
 export const CHARACTERS: Character[] = [
   { id: "normal", model: "character-male-a", hp: 5, gold: 40, relics: [], items: ["bandage"], unlock: { type: "default" } },
-  { id: "librarian", model: "character-female-e", hp: 5, gold: 0, relics: ["tea_break", "cold_lemon"], items: ["bandage"], unlock: { type: "default" } },
-  { id: "baseball", model: "character-male-f", hp: 5, gold: 10, relics: ["follow_up", "persistence"], items: ["wraps", "wraps"], unlock: { type: "default" } },
-  { id: "prefect", model: "character-male-c", hp: 5, gold: 0, relics: ["counter", "standoff"], items: ["shield_sticker", "pause"], unlock: { type: "default" } },
-  { id: "brass", model: "character-female-b", hp: 5, gold: 10, relics: ["breathing", "overflow"], items: ["ramune", "ramune"], unlock: { type: "buy", item: "breathing" } },
-  { id: "sleuth", model: "character-female-d", hp: 5, gold: 0, relics: ["detective", "diary"], items: [], unlock: { type: "buy", item: "detective" } },
-  { id: "blaster", model: "character-male-d", hp: 4, gold: 0, relics: ["discount", "amp"], items: ["lemon_bomb"], unlock: { type: "wins", n: 8 } },
+  { id: "librarian", model: "character-female-e", hp: 5, gold: 40, relics: ["tea_break"], items: ["bandage"], unlock: { type: "default" } },
+  { id: "baseball", model: "character-male-f", hp: 5, gold: 30, relics: ["follow_up"], items: ["wraps"], unlock: { type: "default" } },
+  { id: "prefect", model: "character-male-c", hp: 5, gold: 20, relics: ["counter"], items: ["shield_sticker"], unlock: { type: "default" } },
+  { id: "brass", model: "character-female-b", hp: 5, gold: 20, relics: ["breathing"], items: ["ramune"], unlock: { type: "buy", item: "breathing" } },
+  { id: "sleuth", model: "character-female-d", hp: 5, gold: 20, relics: ["detective"], items: [], unlock: { type: "buy", item: "detective" } },
+  { id: "blaster", model: "character-male-d", hp: 4, gold: 20, relics: ["discount"], items: ["lemon_bomb"], unlock: { type: "wins", n: 8 } },
   { id: "transfer", model: "character-female-a", hp: 3, gold: 50, relics: ["double_time", "hot_blood"], items: [], unlock: { type: "wins", n: 20 } },
 ];
 

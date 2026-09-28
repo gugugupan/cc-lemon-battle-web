@@ -564,6 +564,15 @@ describe("build series", () => {
     expect(battle.player.energy).toBe(1);
   });
 
+  it("persistence: refunds at most twice per fight", () => {
+    const { battle, round } = arena(["persistence"]);
+    round("attack", "charge", () => (battle.player.energy = 3));
+    round("attack", "guard");
+    round("attack", "guard");
+    round("attack", "guard");
+    expect(battle.player.energy).toBe(1);
+  });
+
   it("counter: guarding an attack with energy spends 1 and deals 1", () => {
     const { battle, round } = arena(["counter"]);
     round("guard", "attack", () => {
