@@ -4,6 +4,7 @@ import type { Item } from "../core/items";
 import { type Run, SERVICES, type ServiceId } from "../core/run";
 import { t } from "../i18n";
 import { itemDesc, itemName, pips } from "./hud";
+import { attachTooltip, hideTooltip } from "./tooltip";
 
 type Button = { label: string; onClick: () => void; primary?: boolean; ghost?: boolean; disabled?: boolean };
 
@@ -57,6 +58,7 @@ export class Screens {
   }
 
   hide(): void {
+    hideTooltip();
     this.root.classList.add("hidden");
     this.root.innerHTML = "";
     this.primary = null;
@@ -204,9 +206,9 @@ export class Screens {
         .map((id) => `<button class="service" data-service="${id}" ${run.serviceAvailable(id) ? "" : "disabled"}><span>${t(`svc_${id}`)}</span><span class="price">${t("buy", SERVICES[id].price)}</span></button>`)
         .join("");
       const slots = run.slots
-        .map((s, i) => `<button class="slot ${s ? "" : "empty"} ${selected === i ? "selected" : ""}" data-slot="${i}" title="${s ? escape(itemName(s.id)) : ""}"><span class="slot-key">${i + 1}</span><span class="slot-icon">${s?.icon ?? ""}</span></button>`)
+        .map((s, i) => `<button class="slot ${s ? "" : "empty"} ${selected === i ? "selected" : ""}" data-slot="${i}"><span class="slot-key">${i + 1}</span><span class="slot-icon">${s?.icon ?? ""}</span></button>`)
         .join("");
-      const relics = run.relics.map((r) => `<span class="relic-chip" title="${escape(itemName(r.id) + "\n" + itemDesc(r.id))}">${r.icon}</span>`).join("") || `<span class="muted">${t("none")}</span>`;
+      const relics = run.relics.map((r, i) => `<span class="relic-chip" data-relic="${i}">${r.icon}</span>`).join("") || `<span class="muted">${t("none")}</span>`;
       const panel = h(`<div class="panel shop-panel">
         <div class="shop-head"><h2>🏪 ${t("shop")}</h2><div class="gold">🪙 ${t("gold", run.gold)}</div></div>
         <p class="muted">${t("shopHint")}</p>
@@ -233,6 +235,12 @@ export class Screens {
           render();
         }),
       );
+      hideTooltip();
+      panel.querySelectorAll<HTMLElement>("[data-relic]").forEach((chip) => attachTooltip(chip, run.relics[Number(chip.dataset.relic)], true));
+      panel.querySelectorAll<HTMLElement>("[data-slot]").forEach((b) => {
+        const item = run.slots[Number(b.dataset.slot)];
+        if (item) attachTooltip(b, item);
+      });
       panel.querySelectorAll<HTMLElement>("[data-slot]").forEach((b) =>
         b.addEventListener("click", () => {
           const i = Number(b.dataset.slot);

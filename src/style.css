@@ -68,6 +68,11 @@ button {
   pointer-events: auto;
 }
 
+.hud-top,
+.hud-bottom {
+  zoom: var(--hud-scale, 1);
+}
+
 .hud-top {
   position: absolute;
   top: max(12px, env(safe-area-inset-top));
@@ -1108,5 +1113,65 @@ i.lemon.empty {
 
   .panel {
     padding: 20px 18px;
+  }
+}
+
+/* ---------- tooltip ---------- */
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  max-width: min(280px, calc(100vw - 16px));
+  background: var(--ink);
+  color: #fff;
+  border-radius: 14px;
+  padding: 10px 12px;
+  box-shadow: var(--shadow);
+  pointer-events: none;
+  animation: tip-in 0.12s ease-out;
+}
+
+.tip-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tip-icon {
+  font-size: 22px;
+}
+
+.tip-name {
+  font-weight: 900;
+  font-size: 16px;
+}
+
+.tip-tag {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 1px 8px;
+  border-radius: 99px;
+  background: var(--mint);
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.tip-tag.relic {
+  background: #d0bfff;
+}
+
+.tip-desc {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: #dfe6f5;
+}
+
+@keyframes tip-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
   }
 }

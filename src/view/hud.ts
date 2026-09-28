@@ -3,6 +3,24 @@ import type { ActionId, Fighter } from "../core/rules";
 import { ACTIONS } from "../core/rules";
 import { t } from "../i18n";
 import { ACTION_COLORS, ACTION_ICONS } from "./stage";
+import { attachTooltip, hideTooltip } from "./tooltip";
+
+/** Design size the HUD is laid out for; it is zoomed to fit the actual window. */
+const DESIGN_WIDTH = 1280;
+const DESIGN_HEIGHT = 720;
+const PORTRAIT_WIDTH = 390;
+
+/** Sets `--hud-scale` so the battle HUD (buttons included) grows and shrinks with the window. */
+export function applyHudScale(): void {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const scale = w < h ? clamp(w / PORTRAIT_WIDTH, 0.85, 1.4) : clamp(Math.min(w / DESIGN_WIDTH, h / DESIGN_HEIGHT), 0.8, 1.8);
+  document.documentElement.style.setProperty("--hud-scale", scale.toFixed(3));
+}
+
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, v));
+}
 
 export const ACTION_KEYS: Record<ActionId, string> = { special: "↑", guard: "←", attack: "→", charge: "↓" };
 
@@ -138,7 +156,7 @@ export class Hud {
     for (const r of relics) {
       const chip = el("span", "relic-chip", r.icon);
       chip.dataset.id = r.id;
-      chip.title = `${itemName(r.id)}\n${itemDesc(r.id)}`;
+      attachTooltip(chip, r, true);
       row.append(chip);
     }
   }
@@ -153,12 +171,13 @@ export class Hud {
   }
 
   setSlots(slots: readonly (Consumable | null)[]): void {
+    hideTooltip();
     this.slots.innerHTML = "";
     this.slotButtons.length = 0;
     slots.forEach((item, i) => {
       const button = el("button", `slot ${item ? "" : "empty"}`);
       button.innerHTML = `<span class="slot-key">${i + 1}</span><span class="slot-icon">${item?.icon ?? ""}</span>`;
-      if (item) button.title = `${itemName(item.id)}\n${itemDesc(item.id)}`;
+      if (item) attachTooltip(button, item);
       button.addEventListener("pointerdown", (e) => {
         e.preventDefault();
         this.onItem(i, e);
