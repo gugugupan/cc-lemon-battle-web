@@ -4,7 +4,7 @@
  * ahead on the audio clock, so it stays on the beat at any BPM.
  */
 
-export type StyleId = "pop" | "lofi" | "matsuri" | "funk";
+export type StyleId = "pop" | "lofi" | "lofi2" | "lofi3" | "matsuri" | "funk";
 
 type Note = [step: number, midi: number, length: number];
 
@@ -16,6 +16,8 @@ interface Voices {
   tom(at: number, freq: number, gain?: number): void;
   tone(at: number, midi: number, seconds: number, opts?: ToneOpts): void;
   crackle(at: number, seconds: number): void;
+  rain(at: number, seconds: number): void;
+  fizz(at: number): void;
 }
 
 interface ToneOpts {
@@ -26,6 +28,8 @@ interface ToneOpts {
   cutoff?: number;
   vibrato?: number;
   detune?: number;
+  /** Amplitude wobble depth (0–1), for vibraphone-like tones. */
+  tremolo?: number;
 }
 
 export interface Style {
@@ -104,6 +108,75 @@ const lofi: Style = {
   },
 };
 
+// ---------- B2. dusk classroom: lo-fi jazz (Cm9 F13 Bbmaj9 Gm9) ----------
+
+const DUSK_CHORDS = [[51, 55, 58, 62, 63], [51, 57, 60, 62, 65], [50, 53, 57, 60, 62], [46, 53, 57, 58, 62]];
+const DUSK_BASS: Note[][] = [
+  [[0, 36, 3], [4, 43, 2], [8, 39, 3], [12, 41, 2]],
+  [[0, 41, 3], [4, 45, 2], [8, 48, 3], [12, 40, 2]],
+  [[0, 46, 3], [4, 45, 2], [8, 41, 3], [12, 38, 2]],
+  [[0, 43, 3], [4, 46, 2], [8, 50, 3], [12, 42, 2]],
+];
+const DUSK_VIBES: Note[][] = [
+  [[2, 75, 2], [4, 74, 2], [6, 70, 4], [12, 67, 2]],
+  [[0, 69, 3], [4, 72, 2], [8, 75, 6]],
+  [[2, 74, 2], [4, 72, 2], [6, 69, 2], [8, 70, 6]],
+  [[0, 67, 2], [2, 70, 2], [4, 74, 4], [10, 72, 4]],
+];
+
+const lofi2: Style = {
+  id: "lofi2",
+  bars: 4,
+  swing: 0.3,
+  step(v, bar, step, at, six, fever) {
+    const b = bar % 4;
+    if (step === 0) {
+      v.crackle(at, six * 16);
+      if (bar % 2 === 0) v.rain(at, six * 32);
+    }
+    if (hits("x.........x.....", step)) v.kick(at, 0.45);
+    if (hits("....x.......x...", step)) v.snare(at, 0.12);
+    v.hat(at, step % 2 ? 0.025 : 0.045);
+    if (fever && step % 4 === 2) v.hat(at, 0.08, true);
+    for (const [, n, len] of notesAt(DUSK_BASS, bar, step)) v.tone(at, n, six * len, { type: "sine", gain: 0.38, release: 0.15 });
+    if (step === 0 || step === 11) for (const n of DUSK_CHORDS[b]) v.tone(at, n + 12, six * (step === 0 ? 8 : 4), { type: "triangle", gain: 0.035, attack: 0.03, release: 0.5, detune: 8 });
+    for (const [, n, len] of notesAt(DUSK_VIBES, bar, step)) v.tone(at, n, six * len, { type: "sine", gain: 0.11, attack: 0.005, release: 0.6, tremolo: 0.35 });
+    if (fever && step % 2 === 0) v.tone(at, DUSK_CHORDS[b][(step / 2) % 5] + 24, six * 1.2, { type: "sine", gain: 0.035, release: 0.3, tremolo: 0.3 });
+  },
+};
+
+// ---------- B3. soda chill-hop (Dmaj7 Bm7 Gmaj7 A6, bubbly) ----------
+
+const SODA_CHORDS = [[62, 66, 69, 73], [59, 62, 66, 69], [55, 59, 62, 66], [57, 61, 64, 66]];
+const SODA_BASS = [38, 35, 43, 45];
+const KALIMBA: Note[][] = [
+  [[0, 78, 1], [2, 81, 1], [3, 78, 1], [6, 76, 2], [10, 74, 1], [12, 73, 2]],
+  [[0, 74, 1], [2, 78, 1], [4, 81, 2], [8, 83, 1], [10, 81, 1], [12, 78, 2]],
+  [[0, 79, 1], [2, 78, 1], [3, 74, 1], [6, 71, 2], [10, 74, 1], [12, 76, 2]],
+  [[0, 73, 1], [2, 76, 1], [4, 78, 2], [6, 81, 1], [8, 85, 4]],
+];
+
+const lofi3: Style = {
+  id: "lofi3",
+  bars: 4,
+  swing: 0.16,
+  step(v, bar, step, at, six, fever) {
+    const b = bar % 4;
+    if (step === 0) v.crackle(at, six * 16);
+    if (hits("x......x..x.....", step)) v.kick(at, 0.85);
+    if (hits("....x.......x...", step)) v.snare(at, 0.3);
+    if (step % 2 === 0) v.hat(at, 0.07);
+    if (hits("......x.......x.", step)) v.hat(at, 0.06, true);
+    if (fever && step % 2 === 1) v.hat(at, 0.05);
+    if (step === 0 || step === 10) v.tone(at, SODA_BASS[b], six * 5, { type: "sine", gain: 0.42, release: 0.1 });
+    if (step === 7) v.tone(at, SODA_BASS[b] + 7, six * 2, { type: "sine", gain: 0.3 });
+    if (step % 4 === 0) for (const n of SODA_CHORDS[b]) v.tone(at + six * 0.4, n, six * 3, { type: "triangle", gain: 0.03, attack: 0.08, release: 0.2, detune: 5 });
+    for (const [, n, len] of notesAt(KALIMBA, bar, step)) v.tone(at, n, six * len * 0.6, { type: "triangle", gain: 0.1, attack: 0.002, release: 0.35 });
+    if (step % 8 === 5 || (fever && step % 4 === 1)) v.fizz(at);
+    if (fever && step % 2 === 0) v.tone(at, SODA_CHORDS[b][(step / 2) % 4] + 24, six * 0.8, { type: "triangle", gain: 0.035, release: 0.2 });
+  },
+};
+
 // ---------- C. summer festival (D yo scale: D E G A B, taiko + fue) ----------
 
 const FUE: Note[][] = [
@@ -163,7 +236,7 @@ const funk: Style = {
   },
 };
 
-export const STYLES: Record<StyleId, Style> = { pop, lofi, matsuri, funk };
+export const STYLES: Record<StyleId, Style> = { pop, lofi, lofi2, lofi3, matsuri, funk };
 
 const LOOKAHEAD = 0.15;
 
@@ -288,6 +361,19 @@ export class MusicPlayer implements Voices {
       osc.connect(f);
       node = f;
     }
+    if (o.tremolo) {
+      const trem = this.ctx.createGain();
+      const lfo = this.ctx.createOscillator();
+      const depth = this.ctx.createGain();
+      lfo.frequency.value = 6;
+      depth.gain.value = o.tremolo;
+      lfo.connect(depth);
+      depth.connect(trem.gain);
+      node.connect(trem);
+      node = trem;
+      lfo.start(at);
+      lfo.stop(at + seconds + 0.8);
+    }
     if (o.vibrato) {
       const lfo = this.ctx.createOscillator();
       const depth = this.ctx.createGain();
@@ -306,5 +392,20 @@ export class MusicPlayer implements Voices {
 
   crackle(at: number, seconds: number): void {
     this.burst(at, seconds, 0.015, "bandpass", 3000);
+  }
+
+  rain(at: number, seconds: number): void {
+    this.burst(at, seconds, 0.02, "lowpass", 1200);
+  }
+
+  /** A little soda-bubble "pop": a fast rising blip. */
+  fizz(at: number): void {
+    const osc = this.ctx.createOscillator();
+    const start = 900 + Math.random() * 900;
+    osc.frequency.setValueAtTime(start, at);
+    osc.frequency.exponentialRampToValueAtTime(start * 2.2, at + 0.05);
+    osc.connect(this.env(at, 0.04, 0.002, 0, 0.06));
+    osc.start(at);
+    osc.stop(at + 0.1);
   }
 }

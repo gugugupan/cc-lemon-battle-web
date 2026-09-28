@@ -5,6 +5,8 @@ import { MusicPlayer, STYLES, type StyleId } from "./audio/music";
 const INFO: Record<StyleId, { title: string; tag: string; desc: string; color: string; bpm: number }> = {
   pop: { title: "A. 明快流行", tag: "8-bit / 游戏机", desc: "方波旋律 + 三角波贝斯，C 大调 C–G–Am–F 循环。轻快、易上头，最有「小游戏」的感觉。", color: "#ffd43b", bpm: 120 },
   lofi: { title: "B. 放学后 Lo-fi", tag: "Chill / 摇摆节奏", desc: "慵懒的摇摆鼓点、电钢琴七和弦、唱片底噪。放松，适合慢慢读破绽。", color: "#9fa8ff", bpm: 92 },
+  lofi2: { title: "B2. 黄昏教室", tag: "Lo-fi Jazz / 颤音琴", desc: "更爵士：ii–V–I 九和弦、刷鼓般的轻打击、会走动的贝斯、带颤音的颤音琴旋律，偶尔有窗外的雨声。", color: "#c5b3f6", bpm: 88 },
+  lofi3: { title: "B3. 汽水 Chill-hop", tag: "Chill-hop / 拇指琴", desc: "更明亮有弹性：大调七和弦、结实的 boom-bap 鼓、拇指琴拨弦旋律、随拍起伏的铺底，加上汽水冒泡的小音效。", color: "#74c0fc", bpm: 96 },
   matsuri: { title: "C. 夏日祭典", tag: "太鼓 / 笛子 / 五声音阶", desc: "低音太鼓、缔太鼓、拍手和日本五声音阶的笛声。最贴近「8 月 31 日」的夏天氛围。", color: "#ff8a80", bpm: 110 },
   funk: { title: "D. 电子 Funk", tag: "四踩舞曲 / 厚贝斯", desc: "四拍底鼓、切分贝斯、和弦刺击。最有冲劲，FEVER 时特别带感。", color: "#3ddbb0", bpm: 124 },
 };
@@ -35,7 +37,7 @@ root.innerHTML = `
   @keyframes eq { to { height: 18px; } }
 </style>
 <h1>🎵 BGM 风格试听</h1>
-<p class="sub">全部由 Web Audio 实时合成，没有音频文件。可以调 BPM（游戏里 BPM 会随对手变化），也可以打开 FEVER 层听听进入 FEVER 时的加强版。</p>
+<p class="sub">B、B2、B3 是普通关卡的候选，D 是 Boss / 强敌关卡的候选。全部由 Web Audio 实时合成，没有音频文件。可以调 BPM（游戏里 BPM 会随对手变化），也可以打开 FEVER 层听听进入 FEVER 时的加强版。</p>
 <div class="controls">
   <label>BPM <input id="bpm" type="range" min="90" max="180" value="120" /> <span id="bpmv">120</span></label>
   <label><input id="fever" type="checkbox" /> FEVER 层</label>
