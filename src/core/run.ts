@@ -10,6 +10,13 @@ export const MAX_SLOTS = 4;
 export const VICTORY_HEAL = 1;
 export const ENEMY_NAME_COUNT = 12;
 export const MAX_ENEMY_RELICS = 6;
+/** Tell lines per action, ordered from blunt to subtle. */
+export const TELL_LINES = 5;
+
+/** How many of the tell lines an enemy in the n-th fight picks from: 1 at first, all 5 by fight 9. */
+export function tellVariety(n: number): number {
+  return Math.min(TELL_LINES, 1 + Math.floor((n - 1) / 2));
+}
 export const PLAYER_MODEL = "character-male-a";
 /** Which models can play each enemy name (index = name number), so タカシ isn't drawn as a girl. */
 const NAME_BODIES: ("male" | "female" | "any")[] = ["male", "male", "female", "female", "any", "male", "female", "any", "female", "male", "male", "any"];

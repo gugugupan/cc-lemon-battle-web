@@ -4,7 +4,7 @@ import { Battle, type BattleEvent } from "../src/core/battle";
 import { itemById, type Consumable, type Relic } from "../src/core/items";
 import { Rng } from "../src/core/rng";
 import { type ActionId, affordable, type Fighter, judge, resolve } from "../src/core/rules";
-import { enemyFor, Run } from "../src/core/run";
+import { enemyFor, Run, tellVariety } from "../src/core/run";
 
 const f = (energy = 0, hp = 5): Fighter => ({ hp, maxHp: 5, energy, maxEnergy: 3 });
 
@@ -188,6 +188,10 @@ describe("run", () => {
     }
     expect(enemyFor(12, rng).startEnergy).toBe(2);
     expect(enemyFor(10, rng).maxEnergy).toBe(4);
+  });
+
+  it("widens the pool of tell lines as the run goes on", () => {
+    expect([1, 2, 3, 4, 5, 9, 20].map(tellVariety)).toEqual([1, 1, 2, 2, 3, 5, 5]);
   });
 
   it("pays out, heals and restocks after a win", () => {

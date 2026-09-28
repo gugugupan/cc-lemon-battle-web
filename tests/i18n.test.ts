@@ -5,7 +5,7 @@ vi.stubGlobal("localStorage", { getItem: () => null, setItem: () => {} });
 
 const { hasKey } = await import("../src/i18n");
 const { ALL_ITEMS } = await import("../src/core/items");
-const { ENEMY_NAME_COUNT, RANK_COUNT } = await import("../src/core/run");
+const { ENEMY_NAME_COUNT, RANK_COUNT, TELL_LINES } = await import("../src/core/run");
 
 it("has text for every item, enemy name and rank", () => {
   const missing: string[] = [];
@@ -15,7 +15,8 @@ it("has text for every item, enemy name and rank", () => {
   for (let i = 0; i < ENEMY_NAME_COUNT; i++) if (!hasKey(`name${i}`)) missing.push(`name${i}`);
   for (let i = 0; i < RANK_COUNT; i++) if (!hasKey(`rank${i}`)) missing.push(`rank${i}`);
   for (const a of ["attack", "guard", "charge", "special"]) {
-    for (const key of [`action_${a}`, `tell_${a}`]) if (!hasKey(key)) missing.push(key);
+    if (!hasKey(`action_${a}`)) missing.push(`action_${a}`);
+    for (let i = 0; i < TELL_LINES; i++) if (!hasKey(`tell_${a}_${i}`)) missing.push(`tell_${a}_${i}`);
   }
   expect(missing).toEqual([]);
 });

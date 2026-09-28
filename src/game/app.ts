@@ -3,7 +3,7 @@ import { Battle, type BattleEvent } from "../core/battle";
 import type { EffectReport } from "../core/items";
 import { Rng } from "../core/rng";
 import type { ActionId, RoundResult } from "../core/rules";
-import { PLAYER_MODEL, Run } from "../core/run";
+import { PLAYER_MODEL, Run, tellVariety } from "../core/run";
 import { currentLang, setLang, t } from "../i18n";
 import { Hud, itemName } from "../view/hud";
 import { enemyName, enemyRank, Screens } from "../view/screens";
@@ -179,7 +179,7 @@ export class App {
         if (e.beat === 0) this.hud.hideTell();
         break;
       case "tell":
-        this.hud.tell(t(`tell_${e.action}`), e.forced);
+        this.hud.tell(this.tellLine(e.action), e.forced);
         break;
       case "judge": {
         const at = this.stage.project(this.stage.cardMeet());
@@ -223,6 +223,12 @@ export class App {
         window.setTimeout(() => this.endBattle(e.winner), END_DELAY_MS);
         break;
     }
+  }
+
+  private tellLine(action: ActionId): string {
+    const variety = tellVariety(this.run?.round ?? 1);
+    const line = Math.floor(Math.random() * variety);
+    return t(`tell_${action}_${line}` as Parameters<typeof t>[0]);
   }
 
   /** Shows who got hit by an item or relic effect, anchored at the fighter it landed on. */
