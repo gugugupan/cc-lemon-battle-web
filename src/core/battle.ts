@@ -36,6 +36,17 @@ export interface EnemySpec {
   bpm: number;
 }
 
+export interface BattleOptions {
+  /**
+   * With rest bars (default) every resolved action is followed by a 4-beat bar with no input,
+   * where relic effects play out. Without them the next bar is a call bar straight away and the
+   * round settles half a beat after the action beat.
+   */
+  restBars: boolean;
+}
+
+export const DEFAULT_OPTIONS: BattleOptions = { restBars: true };
+
 export interface Loadout {
   hp: number;
   maxHp: number;
@@ -57,8 +68,8 @@ export type BattleEvent =
 
 /**
  * One fight. Call `onBeat`/`onOffbeat` with absolute beat numbers as they are heard, and
- * `pressAction`/`useItem` with the input's beat position. Bar 0 is a count-in rest bar, and every
- * resolved action turns the next bar into a rest bar where relic effects play out.
+ * `pressAction`/`useItem` with the input's beat position. Bar 0 is a count-in rest bar; see
+ * `BattleOptions` for what follows a resolved action.
  */
 export class Battle {
   readonly player: Fighter;
@@ -86,6 +97,7 @@ export class Battle {
     readonly loadout: Loadout,
     private rng: Rng,
     private emit: (e: BattleEvent) => void = () => {},
+    readonly options: BattleOptions = DEFAULT_OPTIONS,
   ) {
     this.mods = combineMods(loadout.relics);
     const enemyMods = combineMods(spec.relics);
@@ -117,14 +129,7 @@ export class Battle {
     this.emit({ type: "beat", bar, beat: b, rest });
     if (rest) {
       if (b === 0 && this.pendingRound) this.checkWinner();
-      if (b === 1 && this.pendingRound && !this.finished) {
-        const round = this.pendingRound;
-        this.pendingRound = null;
-        for (const event of roundEvents(round)) this.fire("player", event, round);
-        const flipped = mirrored(round);
-        for (const event of roundEvents(flipped)) this.fire("enemy", event, flipped);
-        this.checkWinner();
-      }
+      if (b === 1) this.settleRound();
       return;
     }
     if (b === 0) this.enemyChoice = this.decideEnemy();
@@ -136,11 +141,21 @@ export class Battle {
     }
   }
 
-  /** Called half a beat after each beat; after the action beat an unanswered bar becomes a wait. */
+  /**
+   * Called half a beat after each beat. After the action beat, an unanswered bar becomes a wait;
+   * without rest bars an answered one settles here.
+   */
   onOffbeat(beat: number): void {
     if (this.finished || beat % BEATS_PER_BAR !== ACTION_BEAT) return;
     const bar = Math.floor(beat / BEATS_PER_BAR);
-    if (this.isRestBar(bar) || this.actedBars.has(bar)) return;
+    if (this.isRestBar(bar)) return;
+    if (this.actedBars.has(bar)) {
+      if (!this.options.restBars) {
+        this.checkWinner();
+        this.settleRound();
+      }
+      return;
+    }
     this.enemyChoice = null;
     this.waitsInRow++;
     this.perfectStreak = 0;
@@ -158,7 +173,7 @@ export class Battle {
     const delta = (beatPos - nearest) * secondsPerBeat;
     const grade = judge(delta, this.mods.perfectWindowMult);
     this.actedBars.add(bar);
-    this.restBars.add(bar + 1);
+    if (this.options.restBars) this.restBars.add(bar + 1);
     this.emit({ type: "judge", grade, delta, what: "action" });
     this.trackPerfect(grade);
     this.setCombo(this.combo + 1);
@@ -204,6 +219,17 @@ export class Battle {
     if (grade === "perfect") this.fire("player", "perfect", null);
     this.checkWinner();
     return grade;
+  }
+
+  /** Fires both sides' round relics for the pending round, then checks for a winner. */
+  private settleRound(): void {
+    const round = this.pendingRound;
+    if (!round || this.finished) return;
+    this.pendingRound = null;
+    for (const event of roundEvents(round)) this.fire("player", event, round);
+    const flipped = mirrored(round);
+    for (const event of roundEvents(flipped)) this.fire("enemy", event, flipped);
+    this.checkWinner();
   }
 
   private decideEnemy(): ActionId {

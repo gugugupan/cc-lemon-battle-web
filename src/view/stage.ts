@@ -320,6 +320,8 @@ export class Stage {
   private lookAt = new THREE.Vector3(0, 1.5, 0);
   private cards: THREE.Mesh[] = [];
   private cardCache = new Map<string, THREE.Texture>();
+  /** Seconds the gesture cards stay up; shorter when the next bar follows without a rest. */
+  cardLife = 1.3;
   private clock = new THREE.Clock();
   onFrame: (dt: number) => void = () => {};
 
@@ -535,7 +537,7 @@ export class Stage {
       });
     }
     this.tweens.delay(0.22, onImpact);
-    this.tweens.delay(1.3, () => this.fadeCards());
+    this.tweens.delay(this.cardLife, () => this.fadeCards());
   }
 
   private cardTexture(action: ActionId, label: string, mark?: string): THREE.Texture {

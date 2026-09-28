@@ -87,7 +87,7 @@ export class Screens {
     this.root.append(panel);
   }
 
-  title(best: number, onStart: () => void, onCalibrate: () => void, onHowto: () => void, onLang: () => void): void {
+  title(best: number, restBars: boolean, onStart: () => void, onCalibrate: () => void, onHowto: () => void, onLang: () => void, onToggleRest: () => void): void {
     const panel = h(`<div class="panel title-panel">
       <div class="logo"><span class="logo-lemon">🍋</span><div><h1>${t("title")}</h1><p class="subtitle">${t("subtitle")}</p></div></div>
       ${best > 0 ? `<div class="best">${t("best", best)}</div>` : ""}
@@ -96,8 +96,10 @@ export class Screens {
       { label: t("start"), onClick: onStart, primary: true },
       { label: t("howto"), onClick: onHowto },
       { label: t("calibrate"), onClick: onCalibrate },
+      { label: t(restBars ? "restOn" : "restOff"), onClick: onToggleRest, ghost: true },
       { label: t("language"), onClick: onLang, ghost: true },
     ], "title");
+    panel.append(h(`<p class="muted small center">${t("restHint")}</p>`));
   }
 
   howto(onBack: () => void): void {

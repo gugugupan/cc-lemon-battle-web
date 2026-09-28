@@ -1,4 +1,4 @@
-import { Battle, BEATS_PER_BAR, ACTION_BEAT, type EnemySpec, type Loadout } from "./battle";
+import { ACTION_BEAT, Battle, type BattleOptions, BEATS_PER_BAR, DEFAULT_OPTIONS, type EnemySpec, type Loadout } from "./battle";
 import { Rng } from "./rng";
 import { type ActionId, canAfford } from "./rules";
 
@@ -7,13 +7,20 @@ export type Strategy = "sensible" | "tell_reader";
 const MAX_BARS = 400;
 
 /** Plays a fight without a clock: every call bar the strategy acts on beat 4 (or waits). */
-export function simulate(spec: EnemySpec, loadout: Loadout, strategy: Strategy, perfectRate: number, seed: number): { won: boolean; hpLeft: number; bars: number } {
+export function simulate(
+  spec: EnemySpec,
+  loadout: Loadout,
+  strategy: Strategy,
+  perfectRate: number,
+  seed: number,
+  options: BattleOptions = DEFAULT_OPTIONS,
+): { won: boolean; hpLeft: number; bars: number } {
   const rng = new Rng(seed);
   let tell: ActionId | null = null;
   let waitedForTell = false;
   const battle = new Battle(spec, { ...loadout, slots: [...loadout.slots] }, new Rng(seed + 1), (e) => {
     if (e.type === "tell") tell = e.action;
-  });
+  }, options);
   const spb = 60 / spec.bpm;
   battle.start();
   let beat = 0;

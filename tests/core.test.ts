@@ -79,12 +79,12 @@ describe("ai", () => {
   });
 });
 
-function fight(relics: Relic[] = [], slots: (Consumable | null)[] = []) {
+function fight(relics: Relic[] = [], slots: (Consumable | null)[] = [], restBars = true) {
   const spec = enemyFor(1, new Rng(1));
   spec.relics = [];
   spec.tellChance = 0;
   const events: BattleEvent[] = [];
-  const battle = new Battle(spec, { hp: 5, maxHp: 5, relics, slots }, new Rng(2), (e) => events.push(e));
+  const battle = new Battle(spec, { hp: 5, maxHp: 5, relics, slots }, new Rng(2), (e) => events.push(e), { restBars });
   battle.start();
   return { battle, events, spb: 60 / spec.bpm };
 }
@@ -99,6 +99,26 @@ describe("battle", () => {
     expect(battle.player.energy).toBe(1);
     expect(battle.isRestBar(2)).toBe(true);
     expect(battle.pressAction("attack", 11, spb)).toBeNull();
+  });
+
+  it("can skip rest bars and settle half a beat after the action", () => {
+    const { battle, spb } = fight([itemById("eco") as Relic], [], false);
+    let beat = 0;
+    for (let attacks = 0; attacks < 3; beat++) {
+      battle.onBeat(beat);
+      const bar = Math.floor(beat / 4);
+      expect(bar === 0 || !battle.isRestBar(bar)).toBe(true);
+      if (beat % 4 === 3 && bar > 0) {
+        battle.player.energy = Math.max(battle.player.energy, 1);
+        battle.enemy.hp = 5;
+        expect(battle.pressAction("attack", beat, spb)).not.toBeNull();
+        attacks++;
+      }
+      const before = battle.player.energy;
+      battle.onOffbeat(beat);
+      if (attacks === 3 && beat % 4 === 3) expect(battle.player.energy).toBe(before + 1);
+    }
+    expect(beat).toBe(16);
   });
 
   it("counts any graded action toward the combo and resets it on a wait", () => {

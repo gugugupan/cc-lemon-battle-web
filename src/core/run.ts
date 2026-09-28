@@ -50,7 +50,7 @@ export function enemyFor(n: number, rng: Rng): EnemySpec {
     maxHp: Math.min(9, 3 + Math.floor(k / 4)),
     maxEnergy: 3,
     startEnergy: n >= 8 ? 1 : 0,
-    tellChance: Math.max(0.1, 0.3 - 0.015 * k),
+    tellChance: Math.max(0.25, 0.5 - 0.015 * k),
     tellAccuracy: Math.max(0.6, 0.8 - 0.015 * k),
     ai: {
       ...DEFAULT_AI,
