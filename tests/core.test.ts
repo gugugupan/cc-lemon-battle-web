@@ -185,6 +185,19 @@ describe("run", () => {
     expect(run.stock.length).toBe(5);
   });
 
+  it("sells owned relics and consumables for half price", () => {
+    const run = new Run(1);
+    run.relics.push(itemById("double_time") as Relic);
+    const gold = run.gold;
+    expect(run.sellRelic(0)).toBe(35);
+    expect(run.relics.length).toBe(0);
+    expect(run.sellSlot(0)).toBe(12);
+    expect(run.slots[0]).toBeNull();
+    expect(run.gold).toBe(gold + 47);
+    expect(run.sellSlot(0)).toBe(0);
+    expect(run.sellRelic(3)).toBe(0);
+  });
+
   it("buys items and services with gold", () => {
     const run = new Run(1);
     run.rollShop();

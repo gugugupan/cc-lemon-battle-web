@@ -1,7 +1,7 @@
 import type { BeatClock } from "../audio/clock";
 import { type EnemySpec, fightBpm } from "../core/battle";
 import type { Item } from "../core/items";
-import { type Run, SERVICES, type ServiceId } from "../core/run";
+import { type Run, sellPrice, SERVICES, type ServiceId } from "../core/run";
 import { t } from "../i18n";
 import { itemDesc, itemName, pips } from "./hud";
 import { attachTooltip, hideTooltip } from "./tooltip";
@@ -210,14 +210,20 @@ export class Screens {
       const slots = run.slots
         .map((s, i) => `<button class="slot ${s ? "" : "empty"} ${selected === i ? "selected" : ""}" data-slot="${i}"><span class="slot-key">${i + 1}</span><span class="slot-icon">${s?.icon ?? ""}</span></button>`)
         .join("");
-      const relics = run.relics.map((r, i) => `<span class="relic-chip" data-relic="${i}">${r.icon}</span>`).join("") || `<span class="muted">${t("none")}</span>`;
+      const sellRow = (item: Item, attr: string) =>
+        `<div class="sell-row ${item.kind}"><span class="item-icon">${item.icon}</span><span class="sell-name">${escape(itemName(item.id))}<span class="tag">${item.kind === "relic" ? t("relicTag") : t("items")}</span></span><button class="sell" ${attr}>${t("sell", sellPrice(item))}</button></div>`;
+      const owned = [
+        ...run.relics.map((r, i) => sellRow(r, `data-sell-relic="${i}"`)),
+        ...run.slots.flatMap((s, i) => (s ? [sellRow(s, `data-sell-slot="${i}"`)] : [])),
+      ].join("") || `<p class="muted">${t("none")}</p>`;
       const panel = h(`<div class="panel shop-panel">
         <div class="shop-head"><h2>🏪 ${t("shop")}</h2><div class="gold">🪙 ${t("gold", run.gold)}</div></div>
         <p class="muted">${t("shopHint")}</p>
         <div class="stock">${stock}</div>
         <h3>${t("services")}</h3><div class="services">${services}</div>
         <h3>${t("owned")}</h3>
-        <div class="owned"><div class="hearts">${pips(run.hp, run.maxHp, "heart", "heart empty")}</div><div class="slots">${slots}</div><div class="relic-row">${relics}</div></div>
+        <div class="owned"><div class="hearts">${pips(run.hp, run.maxHp, "heart", "heart empty")}</div><div class="slots">${slots}</div></div>
+        <div class="sell-list">${owned}</div>
         <p class="muted small">${t("slotsHint")}</p>
         <p class="shop-msg">${message}</p>
       </div>`);
@@ -238,7 +244,25 @@ export class Screens {
         }),
       );
       hideTooltip();
-      panel.querySelectorAll<HTMLElement>("[data-relic]").forEach((chip) => attachTooltip(chip, run.relics[Number(chip.dataset.relic)], true));
+      panel.querySelectorAll<HTMLElement>("[data-sell-relic]").forEach((b) => attachTooltip(b.closest(".sell-row") as HTMLElement, run.relics[Number(b.dataset.sellRelic)]));
+      panel.querySelectorAll<HTMLElement>("[data-sell-slot]").forEach((b) => attachTooltip(b.closest(".sell-row") as HTMLElement, run.slots[Number(b.dataset.sellSlot)]!));
+      panel.querySelectorAll<HTMLElement>("[data-sell-relic]").forEach((b) =>
+        b.addEventListener("click", () => {
+          const gold = run.sellRelic(Number(b.dataset.sellRelic));
+          message = t("soldFor", gold);
+          feedback(gold > 0);
+          render();
+        }),
+      );
+      panel.querySelectorAll<HTMLElement>("[data-sell-slot]").forEach((b) =>
+        b.addEventListener("click", () => {
+          const gold = run.sellSlot(Number(b.dataset.sellSlot));
+          message = t("soldFor", gold);
+          feedback(gold > 0);
+          selected = null;
+          render();
+        }),
+      );
       panel.querySelectorAll<HTMLElement>("[data-slot]").forEach((b) => {
         const item = run.slots[Number(b.dataset.slot)];
         if (item) attachTooltip(b, item);

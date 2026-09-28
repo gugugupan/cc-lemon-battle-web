@@ -28,6 +28,11 @@ export type ServiceId = keyof typeof SERVICES;
 
 export type Purchase = "ok" | "no_gold" | "bag_full" | "sold_out" | "maxed";
 
+/** What the shop pays back for an owned item: half its price, at least 5. */
+export function sellPrice(item: Item): number {
+  return Math.max(5, Math.floor(item.price / 2));
+}
+
 export interface StockEntry {
   item: Item;
   sold: boolean;
@@ -160,6 +165,26 @@ export class Run {
         break;
     }
     return "ok";
+  }
+
+  /** Sells an owned relic (by index in `relics`); returns the gold received, or 0 if there was none. */
+  sellRelic(index: number): number {
+    const relic = this.relics[index];
+    if (!relic) return 0;
+    this.relics.splice(index, 1);
+    const gold = sellPrice(relic);
+    this.gold += gold;
+    return gold;
+  }
+
+  /** Sells the consumable in a slot; returns the gold received, or 0 for an empty slot. */
+  sellSlot(slot: number): number {
+    const item = this.slots[slot];
+    if (!item) return 0;
+    this.slots[slot] = null;
+    const gold = sellPrice(item);
+    this.gold += gold;
+    return gold;
   }
 
   swapSlots(a: number, b: number): void {

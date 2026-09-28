@@ -1090,6 +1090,64 @@ i.lemon.empty {
   font-size: 24px;
 }
 
+.sell-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.sell-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border-radius: 14px;
+  padding: 6px 8px 6px 12px;
+  box-shadow: 0 3px 0 var(--line);
+}
+
+.sell-row.relic {
+  background: linear-gradient(160deg, #f3edff, #e2d6ff);
+  box-shadow: 0 3px 0 #b9a4f2;
+}
+
+.sell-name {
+  flex: 1;
+  font-weight: 800;
+  font-size: 14px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.sell-row .tag {
+  flex-shrink: 0;
+}
+
+.sell-row.consumable .tag {
+  background: #c3fae8;
+  color: #087f5b;
+}
+
+.sell {
+  border: none;
+  border-radius: 99px;
+  padding: 6px 12px;
+  font-weight: 900;
+  font-size: 13px;
+  white-space: nowrap;
+  background: #ffe8cc;
+  color: #d9480f;
+  box-shadow: 0 2px 0 #ffc078;
+}
+
+.sell:active {
+  transform: translateY(2px);
+  box-shadow: none;
+}
+
 .shop-msg {
   min-height: 1.6em;
   font-weight: 900;
