@@ -1,4 +1,4 @@
-import { ACTION_BEAT, Battle, type BattleOptions, BEATS_PER_BAR, DEFAULT_OPTIONS, type EnemySpec, type Loadout } from "./battle";
+import { ACTION_BEAT, Battle, type BattleOptions, BEATS_PER_BAR, type EnemySpec, type Loadout } from "./battle";
 import { Rng } from "./rng";
 import { type ActionId, canAfford } from "./rules";
 
@@ -13,7 +13,7 @@ export function simulate(
   strategy: Strategy,
   perfectRate: number,
   seed: number,
-  options: BattleOptions = DEFAULT_OPTIONS,
+  options?: Partial<BattleOptions>,
 ): { won: boolean; hpLeft: number; bars: number } {
   const rng = new Rng(seed);
   let tell: ActionId | null = null;

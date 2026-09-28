@@ -283,6 +283,19 @@ describe("rule-changing relics", () => {
     expect(battle.loadout.slots[0]).not.toBeNull();
   });
 
+  it("rest bars are off by default and the tea break turns them on", () => {
+    const { battle: plain, spb } = withEnemyRelics([]);
+    expect(plain.options.restBars).toBe(false);
+    for (let b = 0; b < 7; b++) plain.onBeat(b);
+    plain.pressAction("charge", 7, spb);
+    expect(plain.isRestBar(2)).toBe(false);
+    const { battle: tea } = withEnemyRelics([], [relic("tea_break")]);
+    expect(tea.options.restBars).toBe(true);
+    for (let b = 0; b < 7; b++) tea.onBeat(b);
+    tea.pressAction("charge", 7, spb);
+    expect(tea.isRestBar(2)).toBe(true);
+  });
+
   it("big bottle starts with 2 energy", () => {
     const { battle } = withEnemyRelics([], [relic("big_bottle")]);
     expect(battle.player.energy).toBe(2);

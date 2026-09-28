@@ -40,14 +40,13 @@ export interface EnemySpec {
 
 export interface BattleOptions {
   /**
-   * With rest bars (default) every resolved action is followed by a 4-beat bar with no input,
-   * where relic effects play out. Without them the next bar is a call bar straight away and the
-   * round settles half a beat after the action beat.
+   * With rest bars every resolved action is followed by a 4-beat bar with no input, where relic
+   * effects play out. Without them (the default) the next bar is a call bar straight away and the
+   * round settles half a beat after the action beat. Left out, it follows the player's relics
+   * (the tea break relic turns rest bars on).
    */
   restBars: boolean;
 }
-
-export const DEFAULT_OPTIONS: BattleOptions = { restBars: true };
 
 export interface Loadout {
   hp: number;
@@ -86,6 +85,7 @@ export class Battle {
   readonly enemy: Fighter;
   readonly mods: Modifiers;
   readonly enemyMods: Modifiers;
+  readonly options: BattleOptions;
   readonly feverThreshold: number;
   /** Tempo for this fight after both sides' relics. */
   readonly bpm: number;
@@ -110,9 +110,10 @@ export class Battle {
     readonly loadout: Loadout,
     private rng: Rng,
     private emit: (e: BattleEvent) => void = () => {},
-    readonly options: BattleOptions = DEFAULT_OPTIONS,
+    options?: Partial<BattleOptions>,
   ) {
     this.mods = combineMods(loadout.relics);
+    this.options = { restBars: options?.restBars ?? this.mods.restBars };
     const enemyMods = combineMods(spec.relics);
     this.enemyMods = enemyMods;
     this.player = { hp: loadout.hp, maxHp: loadout.maxHp, energy: 0, maxEnergy: 3 + this.mods.maxEnergyAdd };

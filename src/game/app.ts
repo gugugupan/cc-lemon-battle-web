@@ -11,18 +11,9 @@ import { Stage } from "../view/stage";
 
 const KEY_ACTIONS: Record<string, ActionId> = { ArrowRight: "attack", ArrowLeft: "guard", ArrowDown: "charge", ArrowUp: "special" };
 const BEST_KEY = "cc-lemon:best";
-const REST_KEY = "cc-lemon:rest-bars";
 const END_DELAY_MS = 1300;
 
 
-
-function loadRestBars(): boolean {
-  try {
-    return localStorage.getItem(REST_KEY) !== "off";
-  } catch {
-    return true;
-  }
-}
 
 function loadBest(): number {
   try {
@@ -41,7 +32,6 @@ export class App {
   private run: Run | null = null;
   private battle: Battle | null = null;
   private best = loadBest();
-  private restBars = loadRestBars();
   private idle = 0;
 
   constructor(root: HTMLElement) {
@@ -105,22 +95,12 @@ export class App {
     this.stage.setFever(false);
     this.screens.title(
       this.best,
-      this.restBars,
       () => void this.unlockThen(() => this.startRun()),
       () => void this.unlockThen(() => this.screens.calibrate(this.clock, () => this.showTitle())),
       () => this.screens.howto(() => this.showTitle()),
       () => {
         setLang(currentLang() === "ja" ? "zh" : "ja");
         this.applyLang();
-        this.showTitle();
-      },
-      () => {
-        this.restBars = !this.restBars;
-        try {
-          localStorage.setItem(REST_KEY, this.restBars ? "on" : "off");
-        } catch {
-          // kept for this visit only
-        }
         this.showTitle();
       },
     );
@@ -153,8 +133,8 @@ export class App {
     const run = this.run!;
     const spec = run.enemy;
     this.screens.hide();
-    const battle = new Battle(spec, run.loadout(), new Rng(), (e) => this.onEvent(e), { restBars: this.restBars });
-    this.stage.cardLife = this.restBars ? 1.3 : 0.85;
+    const battle = new Battle(spec, run.loadout(), new Rng(), (e) => this.onEvent(e));
+    this.stage.cardLife = battle.options.restBars ? 1.3 : 0.85;
     this.battle = battle;
     this.hud.show(true);
     this.hud.hideTell();

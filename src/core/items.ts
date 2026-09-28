@@ -44,6 +44,8 @@ export interface Modifiers {
   bpmMult: number;
   /** Carried by an enemy: the player can't use consumables this fight. */
   locksItems: boolean;
+  /** Carried by the player: every resolved action is followed by a 4-beat rest bar. */
+  restBars: boolean;
 }
 
 export const NEUTRAL_MODS: Modifiers = {
@@ -60,6 +62,7 @@ export const NEUTRAL_MODS: Modifiers = {
   bpmAdd: 0,
   bpmMult: 1,
   locksItems: false,
+  restBars: false,
 };
 
 interface ItemBase {
@@ -106,6 +109,7 @@ export const RELICS: Relic[] = [
   { id: "cheer_flag", kind: "relic", icon: "🚩", price: 55, triggers: [{ on: "fever_start", effects: [{ type: "heal", amount: 2 }] }] },
   { id: "metronome", kind: "relic", icon: "⏱️", price: 50, mods: { perfectWindowMult: 1.5 }, triggers: [{ on: "perfect", when: [{ type: "perfectStreakEvery", n: 3 }], effects: [{ type: "energy", amount: 1 }] }] },
   { id: "double_time", kind: "relic", icon: "⏩", price: 70, mods: { bpmMult: 2, damageBonus: 1 } },
+  { id: "tea_break", kind: "relic", icon: "🍵", price: 30, mods: { restBars: true } },
   { id: "hot_blood", kind: "relic", icon: "🔥", price: 55, mods: { feverDamageBonus: 1 }, triggers: [{ on: "fever_end", effects: [{ type: "hurtSelf", amount: 1 }] }] },
 ];
 
@@ -146,6 +150,7 @@ export function combineMods(relics: readonly Relic[]): Modifiers {
     m.bpmAdd += r.mods.bpmAdd ?? 0;
     m.bpmMult *= r.mods.bpmMult ?? 1;
     m.locksItems ||= r.mods.locksItems ?? false;
+    m.restBars ||= r.mods.restBars ?? false;
   }
   return m;
 }
