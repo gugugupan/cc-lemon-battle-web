@@ -1,4 +1,4 @@
-import type { ActionId, Fighter, RoundResult } from "./rules";
+import type { ActionId, CostAdjust, Fighter, RoundResult } from "./rules";
 import { clamp } from "./rules";
 
 /** `foe_fever_*` fire for the other side's relics when this side's FEVER starts or ends. */
@@ -24,6 +24,18 @@ export type Condition =
   | { type: "used"; action: ActionId }
   | { type: "perfectStreakEvery"; n: number }
   | { type: "comboEvery"; n: number }
+  /** The side's previous round (a wait counts as a round) was this action. */
+  | { type: "prev"; action: ActionId }
+  /** This action has now been used this many times in a row (every n-th time). */
+  | { type: "chainEvery"; action: ActionId; n: number }
+  /** Before this round, the side had used this action at least n times in a row. */
+  | { type: "prevChain"; action: ActionId; n: number }
+  | { type: "foeUsed"; action: ActionId }
+  /** The side's attack was stopped by a guard this round. */
+  | { type: "blocked" }
+  | { type: "hasEnergy"; n: number }
+  /** The side charged while already at full energy. */
+  | { type: "chargedAtFull" }
   | { type: "hpBelow"; ratio: number }
   | { type: "once" }
   | { type: "upTo"; n: number };
@@ -34,6 +46,14 @@ export type Effect =
   | { type: "energy"; amount: number; fill?: boolean }
   | { type: "hurtSelf"; amount: number }
   | { type: "drain"; amount: number }
+  /** Pays energy from the side's own pool. */
+  | { type: "spend"; amount: number }
+  /** The side's next landed action hit this bar deals this much more. */
+  | { type: "buffNextHit"; amount: number }
+  /** The side takes no damage from this bar's round. */
+  | { type: "shieldNext" }
+  /** Next call bar shows a tell no matter the chance (it can still be a lie). */
+  | { type: "tellNext" }
   | { type: "nullify" }
   | { type: "trueTell" };
 
@@ -69,6 +89,8 @@ export interface Modifiers {
   locksItems: boolean;
   /** Carried by the player: every resolved action is followed by a 4-beat rest bar. */
   restBars: boolean;
+  /** Carried by the player: added to the special's energy cost. */
+  specialCostAdd: number;
 }
 
 export const NEUTRAL_MODS: Modifiers = {
@@ -88,12 +110,20 @@ export const NEUTRAL_MODS: Modifiers = {
   bpmMult: 1,
   locksItems: false,
   restBars: false,
+  specialCostAdd: 0,
 };
+
+/** Build families for the player's items; shown in the shop and tooltips. */
+export type Series = "general" | "combo" | "guard" | "charge" | "special" | "wait" | "tell" | "fever";
+
+export const SERIES: Series[] = ["general", "combo", "guard", "charge", "special", "wait", "tell", "fever"];
 
 interface ItemBase {
   id: string;
   icon: string;
   price: number;
+  /** Player items only. */
+  series?: Series;
   /** Enemy relics: the earliest stage of the run (1–3) they can show up in. */
   tier?: number;
 }
@@ -120,15 +150,19 @@ export interface Relic extends ItemBase {
 export type Item = Consumable | Relic;
 
 export const CONSUMABLES: Consumable[] = [
-  { id: "lemon_bomb", kind: "consumable", icon: "💣", price: 25, use: [{ type: "damage", amount: 1 }], perfect: [{ type: "damage", amount: 1 }], fever: [{ type: "damage", amount: 2 }] },
-  { id: "bandage", kind: "consumable", icon: "🩹", price: 25, use: [{ type: "heal", amount: 1 }], perfect: [{ type: "heal", amount: 1 }], fever: [{ type: "heal", amount: 0, fill: true }] },
-  { id: "ramune", kind: "consumable", icon: "🥤", price: 20, use: [{ type: "energy", amount: 1 }], perfect: [{ type: "energy", amount: 1 }], fever: [{ type: "energy", amount: 0, fill: true }] },
-  { id: "pause", kind: "consumable", icon: "⏸️", price: 35, use: [{ type: "nullify" }] },
+  { id: "lemon_bomb", series: "general", kind: "consumable", icon: "💣", price: 25, use: [{ type: "damage", amount: 1 }], perfect: [{ type: "damage", amount: 1 }], fever: [{ type: "damage", amount: 2 }] },
+  { id: "bandage", series: "general", kind: "consumable", icon: "🩹", price: 25, use: [{ type: "heal", amount: 1 }], perfect: [{ type: "heal", amount: 1 }], fever: [{ type: "heal", amount: 0, fill: true }] },
+  { id: "ramune", series: "charge", kind: "consumable", icon: "🥤", price: 20, use: [{ type: "energy", amount: 1 }], perfect: [{ type: "energy", amount: 1 }], fever: [{ type: "energy", amount: 0, fill: true }] },
+  { id: "pause", series: "guard", kind: "consumable", icon: "⏸️", price: 35, use: [{ type: "nullify" }] },
+  { id: "wraps", series: "combo", kind: "consumable", icon: "🎗️", price: 20, use: [{ type: "buffNextHit", amount: 1 }], fever: [{ type: "buffNextHit", amount: 1 }] },
+  { id: "shield_sticker", series: "guard", kind: "consumable", icon: "🔰", price: 30, use: [{ type: "shieldNext" }] },
+  { id: "honey_lemon", series: "charge", kind: "consumable", icon: "🍯", price: 30, use: [{ type: "heal", amount: 1 }, { type: "energy", amount: 1 }], perfect: [{ type: "energy", amount: 1 }] },
 ];
 
 export const RELICS: Relic[] = [
   {
     id: "cold_lemon",
+    series: "general",
     kind: "relic",
     icon: "🍋",
     price: 40,
@@ -137,16 +171,32 @@ export const RELICS: Relic[] = [
       { on: "damaged", when: [{ type: "hpBelow", ratio: 0.5 }, { type: "once" }], effects: [{ type: "heal", amount: 1 }] },
     ],
   },
-  { id: "big_bottle", kind: "relic", icon: "🧃", price: 60, mods: { maxEnergyAdd: 1 }, triggers: [{ on: "battle_start", effects: [{ type: "energy", amount: 2 }] }] },
-  { id: "diary", kind: "relic", icon: "📓", price: 55, mods: { tellChanceMult: 1.5, tellAccuracyAdd: 0.1 } },
-  { id: "xray", kind: "relic", icon: "👓", price: 65, mods: { alwaysTell: true } },
-  { id: "eco", kind: "relic", icon: "♻️", price: 55, triggers: [{ on: "round", when: [{ type: "used", action: "attack" }, { type: "everyNth", n: 3 }], effects: [{ type: "energy", amount: 1 }] }] },
-  { id: "soda_bubbles", kind: "relic", icon: "🫧", price: 60, triggers: [{ on: "perfect", when: [{ type: "perfectStreakEvery", n: 4 }], effects: [{ type: "heal", amount: 1 }] }] },
-  { id: "cheer_flag", kind: "relic", icon: "🚩", price: 55, triggers: [{ on: "round", when: [{ type: "comboEvery", n: 6 }, { type: "upTo", n: 2 }], effects: [{ type: "heal", amount: 1 }] }] },
-  { id: "metronome", kind: "relic", icon: "⏱️", price: 50, mods: { perfectWindowMult: 1.5 }, triggers: [{ on: "perfect", when: [{ type: "perfectStreakEvery", n: 3 }], effects: [{ type: "energy", amount: 1 }] }] },
-  { id: "double_time", kind: "relic", icon: "⏩", price: 70, mods: { bpmMult: 2, damageBonus: 1 } },
-  { id: "tea_break", kind: "relic", icon: "🍵", price: 30, mods: { restBars: true } },
-  { id: "hot_blood", kind: "relic", icon: "🔥", price: 55, mods: { feverDamageBonus: 1 }, triggers: [{ on: "fever_end", effects: [{ type: "hurtSelf", amount: 1 }] }] },
+  { id: "big_bottle", series: "charge", kind: "relic", icon: "🧃", price: 60, mods: { maxEnergyAdd: 1 }, triggers: [{ on: "battle_start", effects: [{ type: "energy", amount: 2 }] }] },
+  { id: "diary", series: "tell", kind: "relic", icon: "📓", price: 55, mods: { tellChanceMult: 1.5, tellAccuracyAdd: 0.1 } },
+  { id: "xray", series: "tell", kind: "relic", icon: "👓", price: 65, mods: { alwaysTell: true } },
+  { id: "eco", series: "combo", kind: "relic", icon: "♻️", price: 55, triggers: [{ on: "round", when: [{ type: "used", action: "attack" }, { type: "everyNth", n: 3 }], effects: [{ type: "energy", amount: 1 }] }] },
+  { id: "soda_bubbles", series: "fever", kind: "relic", icon: "🫧", price: 60, triggers: [{ on: "perfect", when: [{ type: "perfectStreakEvery", n: 4 }], effects: [{ type: "heal", amount: 1 }] }] },
+  { id: "cheer_flag", series: "fever", kind: "relic", icon: "🚩", price: 55, triggers: [{ on: "round", when: [{ type: "comboEvery", n: 6 }, { type: "upTo", n: 2 }], effects: [{ type: "heal", amount: 1 }] }] },
+  { id: "metronome", series: "fever", kind: "relic", icon: "⏱️", price: 50, mods: { perfectWindowMult: 1.5 }, triggers: [{ on: "perfect", when: [{ type: "perfectStreakEvery", n: 3 }], effects: [{ type: "energy", amount: 1 }] }] },
+  { id: "double_time", series: "general", kind: "relic", icon: "⏩", price: 70, mods: { bpmMult: 2, damageBonus: 1 } },
+  { id: "tea_break", series: "general", kind: "relic", icon: "🍵", price: 30, mods: { restBars: true } },
+  { id: "hot_blood", series: "fever", kind: "relic", icon: "🔥", price: 55, mods: { feverDamageBonus: 1 }, triggers: [{ on: "fever_end", effects: [{ type: "hurtSelf", amount: 1 }] }] },
+  { id: "follow_up", series: "combo", kind: "relic", icon: "⏭️", price: 35, triggers: [{ on: "hit", when: [{ type: "used", action: "attack" }, { type: "prev", action: "attack" }, { type: "foeUsed", action: "charge" }], effects: [{ type: "damage", amount: 1 }] }] },
+  { id: "persistence", series: "combo", kind: "relic", icon: "💪", price: 30, triggers: [{ on: "round", when: [{ type: "used", action: "attack" }, { type: "prev", action: "attack" }, { type: "blocked" }], effects: [{ type: "energy", amount: 1 }] }] },
+  { id: "triple", series: "combo", kind: "relic", icon: "3️⃣", price: 50, triggers: [{ on: "hit", when: [{ type: "chainEvery", action: "attack", n: 3 }], effects: [{ type: "damage", amount: 1 }] }] },
+  { id: "finisher", series: "combo", kind: "relic", icon: "🏁", price: 45, triggers: [{ on: "hit", when: [{ type: "used", action: "special" }, { type: "prevChain", action: "attack", n: 2 }], effects: [{ type: "damage", amount: 1 }] }] },
+  { id: "counter", series: "guard", kind: "relic", icon: "↩️", price: 55, triggers: [{ on: "guarded", when: [{ type: "hasEnergy", n: 1 }], effects: [{ type: "spend", amount: 1 }, { type: "damage", amount: 1 }] }] },
+  { id: "standoff", series: "guard", kind: "relic", icon: "🤝", price: 45, triggers: [{ on: "round", when: [{ type: "used", action: "guard" }, { type: "foeUsed", action: "guard" }], effects: [{ type: "energy", amount: 1 }] }] },
+  { id: "wristguard", series: "guard", kind: "relic", icon: "🦾", price: 55, mods: { guardDefenseAdd: 1 } },
+  { id: "patience", series: "guard", kind: "relic", icon: "🧘", price: 30, triggers: [{ on: "hit", when: [{ type: "used", action: "attack" }, { type: "prevChain", action: "guard", n: 2 }], effects: [{ type: "damage", amount: 1 }] }] },
+  { id: "breathing", series: "charge", kind: "relic", icon: "🌬️", price: 55, triggers: [{ on: "round", when: [{ type: "used", action: "charge" }, { type: "everyNth", n: 2 }], effects: [{ type: "energy", amount: 1 }] }] },
+  { id: "spring", series: "charge", kind: "relic", icon: "🌀", price: 45, triggers: [{ on: "damaged", when: [{ type: "used", action: "charge" }], effects: [{ type: "energy", amount: 1 }] }] },
+  { id: "overflow", series: "charge", kind: "relic", icon: "⛲", price: 45, triggers: [{ on: "round", when: [{ type: "chargedAtFull" }, { type: "upTo", n: 3 }], effects: [{ type: "heal", amount: 1 }] }] },
+  { id: "amp", series: "special", kind: "relic", icon: "🔊", price: 55, triggers: [{ on: "hit", when: [{ type: "used", action: "special" }], effects: [{ type: "damage", amount: 1 }] }] },
+  { id: "discount", series: "special", kind: "relic", icon: "🏷️", price: 65, mods: { specialCostAdd: -1 } },
+  { id: "guard_crush", series: "special", kind: "relic", icon: "🔨", price: 35, triggers: [{ on: "hit", when: [{ type: "used", action: "special" }, { type: "foeUsed", action: "guard" }], effects: [{ type: "damage", amount: 1 }] }] },
+  { id: "composure", series: "wait", kind: "relic", icon: "🍃", price: 40, triggers: [{ on: "wait", when: [{ type: "upTo", n: 3 }], effects: [{ type: "energy", amount: 1 }] }] },
+  { id: "detective", series: "wait", kind: "relic", icon: "🕵️", price: 55, triggers: [{ on: "wait", effects: [{ type: "tellNext" }] }] },
 ];
 
 /** Relics only enemies carry; the endless run hands them out as enemies grow, stronger tiers later. */
@@ -206,6 +256,7 @@ export function combineMods(relics: readonly Relic[]): Modifiers {
     m.bpmMult *= r.mods.bpmMult ?? 1;
     m.locksItems ||= r.mods.locksItems ?? false;
     m.restBars ||= r.mods.restBars ?? false;
+    m.specialCostAdd += r.mods.specialCostAdd ?? 0;
   }
   return m;
 }
@@ -224,12 +275,14 @@ export interface EffectContext {
   /** From `self`'s point of view; null outside round events. */
   round: RoundResult | null;
   perfectStreak: number;
+  /** The side's rounds so far, oldest first, including this one; waits are recorded as "wait". */
+  history: (ActionId | "wait")[];
   /** Actions in a row (only the player has a combo; enemy relics see 0). */
   combo: number;
   fever: boolean;
   /** Whether the other side is in FEVER (only the player can be, so this is for enemy relics). */
   foeFever: boolean;
-  requests: { nullify: boolean; trueTell: boolean };
+  requests: { nullify: boolean; trueTell: boolean; hitBonus: number; shield: boolean; tellNext: boolean };
 }
 
 export function applyEffect(effect: Effect, ctx: EffectContext): EffectReport {
@@ -254,6 +307,22 @@ export function applyEffect(effect: Effect, ctx: EffectContext): EffectReport {
       report.fill = !!effect.fill;
       break;
     }
+    case "spend": {
+      const before = ctx.self.energy;
+      ctx.self.energy = Math.max(0, ctx.self.energy - effect.amount);
+      report.amount = before - ctx.self.energy;
+      break;
+    }
+    case "buffNextHit":
+      ctx.requests.hitBonus += effect.amount;
+      report.amount = effect.amount;
+      break;
+    case "shieldNext":
+      ctx.requests.shield = true;
+      break;
+    case "tellNext":
+      ctx.requests.tellNext = true;
+      break;
     case "drain":
       report.side = "foe";
       report.amount = Math.min(effect.amount, ctx.foe.energy);
@@ -313,6 +382,22 @@ export class RelicRunner {
         return ctx.round?.player.grade === "perfect";
       case "used":
         return ctx.round?.player.action === c.action && !ctx.round.player.whiffed;
+      case "prev":
+        return ctx.history.length >= 2 && ctx.history[ctx.history.length - 2] === c.action;
+      case "chainEvery": {
+        const n = streak(ctx.history, c.action);
+        return n > 0 && n % c.n === 0;
+      }
+      case "prevChain":
+        return streak(ctx.history.slice(0, -1), c.action) >= c.n;
+      case "foeUsed":
+        return ctx.round?.enemy.action === c.action && !ctx.round.enemy.whiffed;
+      case "blocked":
+        return !!ctx.round?.player.blocked;
+      case "hasEnergy":
+        return ctx.self.energy >= c.n;
+      case "chargedAtFull":
+        return ctx.round?.player.action === "charge" && !ctx.round.player.whiffed && ctx.round.player.energyBefore >= ctx.self.maxEnergy;
       case "comboEvery":
         return ctx.combo > 0 && ctx.combo % c.n === 0;
       case "perfectStreakEvery":
@@ -334,6 +419,17 @@ export class RelicRunner {
       }
     }
   }
+}
+
+function streak(history: readonly (ActionId | "wait")[], action: ActionId): number {
+  let n = 0;
+  for (let i = history.length - 1; i >= 0 && history[i] === action; i--) n++;
+  return n;
+}
+
+/** The player's action costs after their relics. */
+export function costAdjust(mods: Modifiers): CostAdjust {
+  return mods.specialCostAdd ? { special: mods.specialCostAdd } : {};
 }
 
 export function useConsumable(item: Consumable, perfect: boolean, ctx: EffectContext): EffectReport[] {

@@ -373,6 +373,10 @@ i.lemon.empty {
   color: var(--c);
 }
 
+.pad-btn.discounted .cost {
+  color: #2f9e44;
+}
+
 .pad-btn.poor {
   opacity: 0.45;
 }
@@ -1288,3 +1292,28 @@ i.lemon.empty {
     transform: translateY(4px);
   }
 }
+
+/* ---------- series ---------- */
+
+.series-chip,
+.tip-series {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 1px 8px;
+  border-radius: 99px;
+  background: #e9ecef;
+  color: #495057;
+}
+
+.tip-series {
+  margin-top: 6px;
+}
+
+.series-combo { background: #ffe3e3; color: #c92a2a; }
+.series-guard { background: #d0ebff; color: #1864ab; }
+.series-charge { background: #fff3bf; color: #a86200; }
+.series-special { background: #f3d9fa; color: #862e9c; }
+.series-wait { background: #d3f9d8; color: #2b8a3e; }
+.series-tell { background: #e5dbff; color: #5f3dc4; }
+.series-fever { background: #ffe8cc; color: #d9480f; }

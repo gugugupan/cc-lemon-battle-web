@@ -24,8 +24,14 @@ export interface Fighter {
   maxEnergy: number;
 }
 
-export function canAfford(f: Fighter, action: ActionId): boolean {
-  return ACTIONS[action].cost <= f.energy;
+export type CostAdjust = Partial<Record<ActionId, number>>;
+
+export function costOf(action: ActionId, adjust: CostAdjust = {}): number {
+  return ACTIONS[action].cost + (adjust[action] ?? 0);
+}
+
+export function canAfford(f: Fighter, action: ActionId, adjust: CostAdjust = {}): boolean {
+  return costOf(action, adjust) <= f.energy;
 }
 
 export function affordable(f: Fighter): ActionId[] {
@@ -53,6 +59,8 @@ export interface SideOutcome {
   blocked: boolean;
   guarded: boolean;
   grade: Grade | null;
+  /** Energy before paying for this round's action. */
+  energyBefore: number;
 }
 
 export type Winner = "player" | "enemy" | "draw" | null;
@@ -73,6 +81,10 @@ export interface RoundRules {
   enemyGuardBonus: number;
   playerCanGuard: boolean;
   enemyNullified: boolean;
+  /** Changes to what the player's actions cost (e.g. a cheaper special). */
+  playerCostAdjust: CostAdjust;
+  /** The player takes no damage this round. */
+  playerShielded: boolean;
 }
 
 export const DEFAULT_RULES: RoundRules = {
@@ -83,10 +95,12 @@ export const DEFAULT_RULES: RoundRules = {
   enemyGuardBonus: 0,
   playerCanGuard: true,
   enemyNullified: false,
+  playerCostAdjust: {},
+  playerShielded: false,
 };
 
-function side(action: ActionId): SideOutcome {
-  return { action, whiffed: false, nullified: false, damageDealt: 0, damageTaken: 0, blocked: false, guarded: false, grade: null };
+function side(action: ActionId, energyBefore: number): SideOutcome {
+  return { action, whiffed: false, nullified: false, damageDealt: 0, damageTaken: 0, blocked: false, guarded: false, grade: null, energyBefore };
 }
 
 /**
@@ -95,15 +109,14 @@ function side(action: ActionId): SideOutcome {
  */
 export function resolve(p: Fighter, pa: ActionId, e: Fighter, ea: ActionId, partial: Partial<RoundRules> = {}): RoundResult {
   const rules = { ...DEFAULT_RULES, ...partial };
-  const ps = side(pa);
-  const es = side(ea);
-  ps.whiffed = !canAfford(p, pa) || (pa === "guard" && !rules.playerCanGuard);
+  const ps = side(pa, p.energy);
+  const es = side(ea, e.energy);
+  ps.whiffed = !canAfford(p, pa, rules.playerCostAdjust) || (pa === "guard" && !rules.playerCanGuard);
   es.nullified = rules.enemyNullified;
   es.whiffed = es.nullified || !canAfford(e, ea);
 
-  for (const [f, s] of [[p, ps], [e, es]] as const) {
-    if (!s.whiffed) f.energy = clamp(f.energy - ACTIONS[s.action].cost, 0, f.maxEnergy);
-  }
+  if (!ps.whiffed) p.energy = clamp(p.energy - costOf(pa, rules.playerCostAdjust), 0, p.maxEnergy);
+  if (!es.whiffed) e.energy = clamp(e.energy - costOf(ea), 0, e.maxEnergy);
 
   const pAtk = ps.whiffed ? 0 : ACTIONS[pa].attack;
   const pDef = ps.whiffed ? 0 : ACTIONS[pa].defense + (pa === "guard" ? rules.playerGuardBonus : 0);
@@ -130,6 +143,7 @@ export function resolve(p: Fighter, pa: ActionId, e: Fighter, ea: ActionId, part
   }
   if (toEnemy > 0) toEnemy = toEnemy * rules.playerDamageMult + rules.playerDamageBonus;
   if (toPlayer > 0) toPlayer += rules.enemyDamageBonus;
+  if (rules.playerShielded) toPlayer = 0;
 
   e.hp = Math.max(0, e.hp - toEnemy);
   p.hp = Math.max(0, p.hp - toPlayer);

@@ -2,6 +2,7 @@ import { type AiParams, decide, rollTell } from "./ai";
 import {
   combineMods,
   type Consumable,
+  costAdjust,
   type EffectContext,
   type EffectReport,
   type Modifiers,
@@ -13,7 +14,7 @@ import {
   useConsumable,
 } from "./items";
 import type { Rng } from "./rng";
-import { type ActionId, type Fighter, type Grade, judge, mirrored, resolve, type RoundResult, type Winner, winnerOf } from "./rules";
+import { type ActionId, costOf, type CostAdjust, type Fighter, type Grade, judge, mirrored, resolve, type RoundResult, type Winner, winnerOf } from "./rules";
 
 export const BEATS_PER_BAR = 4;
 /** The 「モン」 beat (0-based): the only beat an action is judged on. */
@@ -107,6 +108,12 @@ export class Battle {
   private enemyChoice: ActionId | null = null;
   private waitsInRow = 0;
   private playerHistory: ActionId[] = [];
+  /** Player rounds including waits, for chain-based relics. */
+  private playerSequence: (ActionId | "wait")[] = [];
+  private nextHitBonus = 0;
+  private shieldNext = false;
+  private tellNextBar = false;
+  readonly costs: CostAdjust;
   private pendingRound: RoundResult | null = null;
   private nullifyNext = false;
   private playerRelics: RelicRunner;
@@ -121,6 +128,7 @@ export class Battle {
   ) {
     this.mods = combineMods(loadout.relics);
     this.options = { restBars: options?.restBars ?? this.mods.restBars };
+    this.costs = costAdjust(this.mods);
     const enemyMods = combineMods(spec.relics);
     this.enemyMods = enemyMods;
     this.player = { hp: loadout.hp, maxHp: loadout.maxHp, energy: 0, maxEnergy: 3 + this.mods.maxEnergyAdd };
@@ -130,6 +138,11 @@ export class Battle {
     this.feverThreshold = Math.max(1, FEVER_THRESHOLD + this.mods.feverThresholdAdd + enemyMods.feverThresholdAdd);
     this.playerRelics = new RelicRunner(loadout.relics);
     this.enemyRelics = new RelicRunner(spec.relics);
+  }
+
+  /** Energy the player's action costs after relics (negative = gives energy). */
+  costOf(action: ActionId): number {
+    return costOf(action, this.costs);
   }
 
   get perfectWindowMult(): number {
@@ -167,7 +180,8 @@ export class Battle {
     }
     if (b === 0) this.enemyChoice = this.decideEnemy();
     if (b === 1 && this.enemyChoice) {
-      const always = this.mods.alwaysTell || this.enemyMods.alwaysTell;
+      const always = this.mods.alwaysTell || this.enemyMods.alwaysTell || this.tellNextBar;
+      this.tellNextBar = false;
       const chance = always ? 1 : this.spec.tellChance * this.mods.tellChanceMult * this.enemyMods.tellChanceMult;
       const accuracy = Math.min(1, Math.max(0, this.spec.tellAccuracy + this.mods.tellAccuracyAdd + this.enemyMods.tellAccuracyAdd));
       const tell = rollTell(this.enemy, this.enemyChoice, chance, accuracy, always ? 0 : this.waitsInRow, this.rng);
@@ -193,6 +207,9 @@ export class Battle {
     this.enemyChoice = null;
     this.waitsInRow++;
     this.perfectStreak = 0;
+    this.nextHitBonus = 0;
+    this.shieldNext = false;
+    this.playerSequence.push("wait");
     this.emit({ type: "wait" });
     this.setCombo(0);
     this.fire("player", "wait", null);
@@ -215,18 +232,23 @@ export class Battle {
     this.trackPerfect(grade);
 
     const result = resolve(this.player, action, this.enemy, enemyAction, {
-      playerDamageBonus: this.mods.damageBonus + (this.fever ? this.mods.feverDamageBonus : 0),
+      playerDamageBonus: this.mods.damageBonus + (this.fever ? this.mods.feverDamageBonus : 0) + this.nextHitBonus,
       enemyDamageBonus: this.enemyMods.damageBonus + (this.fever ? this.enemyMods.damageVsFeverAdd : 0),
       playerGuardBonus: this.mods.guardDefenseAdd,
       enemyGuardBonus: this.enemyMods.guardDefenseAdd,
       playerCanGuard: this.mods.canGuard,
       enemyNullified: this.nullifyNext,
+      playerCostAdjust: this.costs,
+      playerShielded: this.shieldNext,
     });
+    this.nextHitBonus = 0;
+    this.shieldNext = false;
     result.player.grade = grade;
     this.nullifyNext = false;
     this.enemyChoice = null;
     this.waitsInRow = 0;
     this.playerHistory.push(action);
+    this.playerSequence.push(action);
     this.pendingRound = result;
     this.emit({ type: "reveal", result });
     // The combo (and so FEVER, and relics reacting to it) moves after the round resolves, so a
@@ -252,11 +274,7 @@ export class Battle {
 
     const ctx = this.context("player", null);
     const reports = useConsumable(item, grade === "perfect", ctx);
-    if (ctx.requests.nullify) this.nullifyNext = true;
-    if (ctx.requests.trueTell) {
-      this.enemyChoice ??= this.decideEnemy();
-      this.emit({ type: "tell", action: this.enemyChoice, forced: true });
-    }
+    this.applyRequests(ctx);
     this.emit({ type: "item", slot, item, grade, reports });
     if (grade === "perfect") this.fire("player", "perfect", null);
     this.checkWinner();
@@ -310,15 +328,31 @@ export class Battle {
       combo: mine ? this.combo : 0,
       fever: mine && this.fever,
       foeFever: !mine && this.fever,
-      requests: { nullify: false, trueTell: false },
+      history: mine ? this.playerSequence : [],
+      requests: { nullify: false, trueTell: false, hitBonus: 0, shield: false, tellNext: false },
     };
+  }
+
+  /** Effects that change the next round rather than the fighters (player side only). */
+  private applyRequests(ctx: EffectContext): void {
+    const r = ctx.requests;
+    if (r.nullify) this.nullifyNext = true;
+    this.nextHitBonus += r.hitBonus;
+    if (r.shield) this.shieldNext = true;
+    if (r.tellNext) this.tellNextBar = true;
+    if (r.trueTell) {
+      this.enemyChoice ??= this.decideEnemy();
+      this.emit({ type: "tell", action: this.enemyChoice, forced: true });
+    }
   }
 
   private fire(side: "player" | "enemy", event: Trigger, round: RoundResult | null): void {
     const runner = side === "player" ? this.playerRelics : this.enemyRelics;
-    for (const notice of runner.fire(event, this.context(side, round))) {
+    const ctx = this.context(side, round);
+    for (const notice of runner.fire(event, ctx)) {
       this.emit({ type: "notice", side, notice });
     }
+    if (side === "player") this.applyRequests(ctx);
   }
 
   private checkWinner(): void {

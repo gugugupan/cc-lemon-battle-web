@@ -1,4 +1,4 @@
-import type { Consumable, Relic } from "../core/items";
+import type { Consumable, Item, Relic } from "../core/items";
 import type { ActionId, Fighter } from "../core/rules";
 import { ACTIONS } from "../core/rules";
 import { t } from "../i18n";
@@ -39,6 +39,10 @@ export function itemDesc(id: string): string {
   return t(`item_${id}_desc` as Parameters<typeof t>[0]);
 }
 
+export function seriesLabel(item: Item): string {
+  return item.series ? t("seriesTag", t(`series_${item.series}` as Parameters<typeof t>[0])) : "";
+}
+
 export function pips(count: number, max: number, filled: string, empty: string): string {
   let out = "";
   for (let i = 0; i < max; i++) out += `<i class="${i < count ? filled : empty}"></i>`;
@@ -61,6 +65,7 @@ export class Hud {
   readonly slotButtons: HTMLButtonElement[] = [];
   onAction: (action: ActionId, event: PointerEvent) => void = () => {};
   onItem: (slot: number, event: PointerEvent) => void = () => {};
+  private costOf: (action: ActionId) => number = (a) => ACTIONS[a].cost;
 
   private player: Side;
   private enemy: Side;
@@ -90,8 +95,7 @@ export class Hud {
     for (const action of ["special", "guard", "attack", "charge"] as ActionId[]) {
       const button = el("button", `pad-btn pad-${action}`);
       button.style.setProperty("--c", ACTION_COLORS[action]);
-      const cost = ACTIONS[action].cost;
-      button.innerHTML = `<span class="key">${ACTION_KEYS[action]}</span><span class="icon">${ACTION_ICONS[action]}</span><span class="label">${t(`action_${action}`)}</span><span class="cost">${cost === 0 ? "±0" : cost < 0 ? "+" + -cost : "-" + cost}</span>`;
+      button.innerHTML = `<span class="key">${ACTION_KEYS[action]}</span><span class="icon">${ACTION_ICONS[action]}</span><span class="label">${t(`action_${action}`)}</span><span class="cost"></span>`;
       button.addEventListener("pointerdown", (e) => {
         e.preventDefault();
         this.onAction(action, e);
@@ -99,6 +103,7 @@ export class Hud {
       padWrap.append(button);
       this.pad.set(action, button);
     }
+    this.setCosts((a) => ACTIONS[a].cost);
     this.comboBar.append(el("div", "fill"));
     this.combo.append(this.comboCount, this.comboLabel, this.comboBar);
     bottom.append(slotWrap, padWrap, this.combo);
@@ -141,13 +146,23 @@ export class Hud {
     this.root.classList.toggle("resting", rest);
   }
 
+  /** Shows each action's energy cost (relics can change it). */
+  setCosts(costOf: (action: ActionId) => number): void {
+    this.costOf = costOf;
+    for (const [action, button] of this.pad) {
+      const cost = costOf(action);
+      button.querySelector(".cost")!.textContent = cost === 0 ? "±0" : cost < 0 ? `+${-cost}` : `-${cost}`;
+      button.classList.toggle("discounted", cost < ACTIONS[action].cost);
+    }
+  }
+
   setStats(player: Fighter, enemy: Fighter): void {
     for (const [side, f] of [[this.player, player], [this.enemy, enemy]] as const) {
       side.hearts.innerHTML = pips(f.hp, f.maxHp, "heart", "heart empty");
       side.energy.innerHTML = pips(f.energy, f.maxEnergy, "lemon", "lemon empty");
     }
     for (const [action, button] of this.pad) {
-      button.classList.toggle("poor", ACTIONS[action].cost > player.energy);
+      button.classList.toggle("poor", this.costOf(action) > player.energy);
     }
   }
 

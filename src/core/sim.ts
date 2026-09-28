@@ -1,6 +1,6 @@
 import { ACTION_BEAT, Battle, type BattleOptions, BEATS_PER_BAR, type EnemySpec, type Loadout } from "./battle";
 import { Rng } from "./rng";
-import { type ActionId, canAfford } from "./rules";
+import type { ActionId } from "./rules";
 
 export type Strategy = "sensible" | "tell_reader";
 
@@ -51,6 +51,7 @@ export function simulate(
 
 function pick(strategy: Strategy, battle: Battle, tell: ActionId | null, waited: boolean, rng: Rng): ActionId | null {
   const me = battle.player;
+  const canAfford = (_: unknown, a: ActionId) => battle.costOf(a) <= me.energy;
   if (strategy === "tell_reader") {
     if (tell === null && !waited) return null;
     if (tell === "attack" || tell === "special") return battle.mods.canGuard ? "guard" : "charge";

@@ -3,7 +3,7 @@ import { type EnemySpec, enemyStats, fightBpm } from "../core/battle";
 import type { Item } from "../core/items";
 import { type Run, sellPrice, SERVICES, type ServiceId } from "../core/run";
 import { t } from "../i18n";
-import { itemDesc, itemName, pips } from "./hud";
+import { itemDesc, itemName, pips, seriesLabel } from "./hud";
 import { attachTooltip, hideTooltip } from "./tooltip";
 
 type Button = { label: string; onClick: () => void; primary?: boolean; ghost?: boolean; disabled?: boolean };
@@ -199,6 +199,7 @@ export class Screens {
           return `<button class="shop-card ${s.item.kind} ${s.sold ? "sold" : ""}" data-buy="${i}" ${s.sold ? "disabled" : ""}>
             <span class="item-icon big">${s.item.icon}</span>
             <span class="item-name">${escape(itemName(s.item.id))} ${tag}</span>
+            ${s.item.series ? `<span class="series-chip series-${s.item.series}">${escape(seriesLabel(s.item))}</span>` : ""}
             <span class="item-desc">${escape(itemDesc(s.item.id))}</span>
             <span class="price">${s.sold ? t("sold") : t("buy", s.item.price)}</span></button>`;
         })

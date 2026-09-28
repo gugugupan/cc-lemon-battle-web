@@ -141,6 +141,7 @@ export class App {
     this.hud.setNames(enemyName(spec), enemyRank(spec), spec.color);
     this.hud.setRound(run.round, battle.bpm);
     this.hud.setItemsLocked(battle.itemsLocked);
+    this.hud.setCosts((a) => battle.costOf(a));
     this.hud.setRelics("player", run.relics);
     this.hud.setRelics("enemy", spec.relics);
     this.hud.setSlots(run.slots);
@@ -251,6 +252,14 @@ export class App {
       } else if (r.type === "energy" && r.amount > 0) {
         this.stage.fighter(target).charge(this.stage.tweens);
         this.hud.popup(r.fill ? t("fx_energy_full") : t("fx_energy", r.amount), at.x, at.y, "energy");
+      } else if (r.type === "spend" && r.amount > 0) {
+        this.hud.popup(t("fx_drain", r.amount), at.x, at.y, "energy");
+      } else if (r.type === "buffNextHit") {
+        this.hud.popup(t("fx_hit_bonus", r.amount), at.x, at.y, "energy");
+      } else if (r.type === "shieldNext") {
+        this.hud.popup(t("fx_shield"), at.x, at.y, "heal");
+      } else if (r.type === "tellNext") {
+        this.hud.popup(t("fx_tell_next"), at.x, at.y, "energy");
       } else if (r.type === "drain" && r.amount > 0) {
         this.hud.popup(t("fx_drain", r.amount), at.x, at.y, "damage");
       } else if (r.type === "hurtSelf" && r.amount > 0) {

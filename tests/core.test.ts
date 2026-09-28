@@ -450,3 +450,127 @@ describe("FEVER-reactive enemy relics", () => {
     expect(battle.player.hp).toBe(3);
   });
 });
+
+describe("build series", () => {
+  const relic = (id: string) => itemById(id) as Relic;
+
+  function arena(relics: string[], slots: string[] = []) {
+    const spec = enemyFor(1, new Rng(1));
+    spec.relics = [];
+    spec.tellChance = 0;
+    const events: BattleEvent[] = [];
+    const battle = new Battle(spec, { hp: 5, maxHp: 5, relics: relics.map(relic), slots: slots.map((id) => itemById(id) as Consumable) }, new Rng(2), (e) => events.push(e));
+    battle.start();
+    const spb = 60 / battle.bpm;
+    let beat = 0;
+    /** Plays one bar: optional item on beat 1, then `mine` vs `theirs` on beat 4 (null = wait). */
+    const round = (mine: ActionId | null, theirs: ActionId, setup: () => void = () => {}, item?: number) => {
+      while (beat % 4 !== 0 || beat === 0) {
+        battle.onBeat(beat);
+        battle.onOffbeat(beat);
+        beat++;
+      }
+      battle.onBeat(beat);
+      if (item !== undefined) battle.useItem(item, beat, spb);
+      for (let b = 1; b < 4; b++) battle.onBeat(beat + b);
+      (battle as unknown as { enemyChoice: ActionId }).enemyChoice = theirs;
+      setup();
+      if (mine) battle.pressAction(mine, beat + 3, spb);
+      battle.onOffbeat(beat + 3);
+      beat += 4;
+    };
+    const fired = (id: string) => events.filter((e) => e.type === "notice" && e.notice.item.id === id).length;
+    return { battle, round, fired };
+  }
+
+  it("follow up: attack after attack hits a charging enemy for +1", () => {
+    const { battle, round } = arena(["follow_up"]);
+    round("attack", "charge", () => (battle.player.energy = 1));
+    const hp = battle.enemy.hp;
+    round("attack", "charge", () => (battle.player.energy = 1));
+    expect(hp - battle.enemy.hp).toBe(2);
+  });
+
+  it("persistence: a blocked follow-up attack refunds 1 energy", () => {
+    const { battle, round } = arena(["persistence"]);
+    round("attack", "charge", () => (battle.player.energy = 1));
+    round("attack", "guard", () => (battle.player.energy = 1));
+    expect(battle.player.energy).toBe(1);
+  });
+
+  it("counter: guarding an attack with energy spends 1 and deals 1", () => {
+    const { battle, round } = arena(["counter"]);
+    round("guard", "attack", () => {
+      battle.player.energy = 2;
+      battle.enemy.energy = 1;
+    });
+    expect(battle.player.energy).toBe(1);
+    expect(battle.enemy.hp).toBe(battle.enemy.maxHp - 1);
+  });
+
+  it("standoff: both guarding gives 1 energy", () => {
+    const { battle, round } = arena(["standoff"]);
+    round("guard", "guard", () => (battle.player.energy = 0));
+    expect(battle.player.energy).toBe(1);
+  });
+
+  it("breathing adds 1 on every second charge, overflow heals when charging at full", () => {
+    const { battle, round } = arena(["breathing", "overflow"]);
+    round("charge", "guard", () => (battle.player.energy = 0));
+    expect(battle.player.energy).toBe(1);
+    round("charge", "guard", () => (battle.player.energy = 0));
+    expect(battle.player.energy).toBe(2);
+    round("charge", "guard", () => {
+      battle.player.energy = 3;
+      battle.player.hp = 3;
+    });
+    expect(battle.player.hp).toBe(4);
+  });
+
+  it("discount makes the special cost 2; guard crush adds 1 against a guard", () => {
+    const { battle, round } = arena(["discount", "guard_crush"]);
+    expect(battle.costOf("special")).toBe(2);
+    round("special", "guard", () => (battle.player.energy = 2));
+    expect(battle.player.energy).toBe(0);
+    expect(battle.enemy.hp).toBe(battle.enemy.maxHp - 2);
+  });
+
+  it("triple and finisher reward attack chains", () => {
+    const { battle, round, fired } = arena(["triple", "finisher"]);
+    for (let i = 0; i < 3; i++) round("attack", "charge", () => ((battle.player.energy = 1), (battle.enemy.hp = 5)));
+    expect(fired("triple")).toBe(1);
+    round("special", "charge", () => ((battle.player.energy = 3), (battle.enemy.hp = 5)));
+    expect(fired("finisher")).toBe(1);
+  });
+
+  it("patience: two guards then an attack hits for +1", () => {
+    const { battle, round, fired } = arena(["patience"]);
+    round("guard", "guard");
+    round("guard", "guard");
+    round("attack", "charge", () => (battle.player.energy = 1));
+    expect(fired("patience")).toBe(1);
+  });
+
+  it("composure and detective turn waits into energy and a guaranteed tell", () => {
+    const spec = enemyFor(1, new Rng(1));
+    spec.relics = [];
+    spec.tellChance = 0;
+    const events: BattleEvent[] = [];
+    const battle = new Battle(spec, { hp: 5, maxHp: 5, relics: [relic("composure"), relic("detective")], slots: [] }, new Rng(2), (e) => events.push(e));
+    battle.start();
+    for (let b = 0; b < 12; b++) {
+      battle.onBeat(b);
+      battle.onOffbeat(b);
+    }
+    expect(battle.player.energy).toBe(2);
+    expect(events.filter((e) => e.type === "tell").length).toBe(1);
+  });
+
+  it("wraps and shield sticker change only this bar's round", () => {
+    const { battle, round } = arena([], ["wraps", "shield_sticker"]);
+    round("attack", "charge", () => (battle.player.energy = 1), 0);
+    expect(battle.enemy.hp).toBe(battle.enemy.maxHp - 2);
+    round("charge", "attack", () => (battle.enemy.energy = 1), 1);
+    expect(battle.player.hp).toBe(5);
+  });
+});

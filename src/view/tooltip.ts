@@ -1,6 +1,6 @@
 import type { Item } from "../core/items";
 import { t } from "../i18n";
-import { itemDesc, itemName } from "./hud";
+import { itemDesc, itemName, seriesLabel } from "./hud";
 
 const GAP = 10;
 const EDGE = 8;
@@ -25,7 +25,7 @@ function show(target: HTMLElement, item: Item): void {
   const tip = ensureBox();
   owner = target;
   const tag = item.kind === "relic" ? t("relicTag") : t("items");
-  tip.innerHTML = `<div class="tip-head"><span class="tip-icon">${item.icon}</span><span class="tip-name">${escape(itemName(item.id))}</span><span class="tip-tag ${item.kind}">${tag}</span></div><div class="tip-desc">${escape(itemDesc(item.id))}</div>`;
+  tip.innerHTML = `<div class="tip-head"><span class="tip-icon">${item.icon}</span><span class="tip-name">${escape(itemName(item.id))}</span><span class="tip-tag ${item.kind}">${tag}</span></div><div class="tip-desc">${escape(itemDesc(item.id))}</div>${item.series ? `<div class="tip-series series-${item.series}">${escape(seriesLabel(item))}</div>` : ""}`;
   tip.classList.remove("hidden");
   const r = target.getBoundingClientRect();
   const w = tip.offsetWidth;
