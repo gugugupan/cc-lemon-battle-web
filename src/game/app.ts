@@ -245,6 +245,8 @@ export class App {
       } else if (r.type === "energy" && r.amount > 0) {
         this.stage.fighter(target).charge(this.stage.tweens);
         this.hud.popup(r.fill ? t("fx_energy_full") : t("fx_energy", r.amount), at.x, at.y, "energy");
+      } else if (r.type === "drain" && r.amount > 0) {
+        this.hud.popup(t("fx_drain", r.amount), at.x, at.y, "damage");
       } else if (r.type === "hurtSelf" && r.amount > 0) {
         this.stage.fighter(target).hurt();
         this.stage.shake(10);

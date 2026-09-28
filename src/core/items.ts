@@ -1,7 +1,7 @@
 import type { ActionId, Fighter, RoundResult } from "./rules";
 import { clamp } from "./rules";
 
-export type Trigger = "battle_start" | "round" | "perfect" | "clash" | "hit" | "guarded" | "damaged" | "fever_start" | "fever_end";
+export type Trigger = "battle_start" | "round" | "perfect" | "clash" | "hit" | "guarded" | "damaged" | "wait" | "fever_start" | "fever_end";
 
 export type Condition =
   | { type: "everyNth"; n: number }
@@ -17,15 +17,20 @@ export type Effect =
   | { type: "heal"; amount: number; fill?: boolean }
   | { type: "energy"; amount: number; fill?: boolean }
   | { type: "hurtSelf"; amount: number }
+  | { type: "drain"; amount: number }
   | { type: "nullify" }
   | { type: "trueTell" };
 
 /**
- * Rule changes a side's relics make. Tell fields always describe the *enemy's* tells, whichever
- * side carries them (the player's diary sharpens them, the enemy's poker face muddies them).
+ * Rule changes a side's relics make. Some fields always describe the player or the enemy,
+ * whichever side carries the relic: tell fields are about the *enemy's* tells (the player's diary
+ * sharpens them, the enemy's poker face muddies them), and the Perfect window and FEVER threshold
+ * are the *player's* (a metronome widens it, an enemy's pressure narrows it).
  */
 export interface Modifiers {
   maxEnergyAdd: number;
+  /** The carrier's max HP. */
+  maxHpAdd: number;
   perfectWindowMult: number;
   tellChanceMult: number;
   tellAccuracyAdd: number;
@@ -50,6 +55,7 @@ export interface Modifiers {
 
 export const NEUTRAL_MODS: Modifiers = {
   maxEnergyAdd: 0,
+  maxHpAdd: 0,
   perfectWindowMult: 1,
   tellChanceMult: 1,
   tellAccuracyAdd: 0,
@@ -69,6 +75,8 @@ interface ItemBase {
   id: string;
   icon: string;
   price: number;
+  /** Enemy relics: the earliest stage of the run (1–3) they can show up in. */
+  tier?: number;
 }
 
 export interface Consumable extends ItemBase {
@@ -113,16 +121,27 @@ export const RELICS: Relic[] = [
   { id: "hot_blood", kind: "relic", icon: "🔥", price: 55, mods: { feverDamageBonus: 1 }, triggers: [{ on: "fever_end", effects: [{ type: "hurtSelf", amount: 1 }] }] },
 ];
 
-/** Relics only enemies carry; the endless run hands them out as enemies grow. */
+/** Relics only enemies carry; the endless run hands them out as enemies grow, stronger tiers later. */
 export const ENEMY_RELICS: Relic[] = [
-  { id: "class_log", kind: "relic", icon: "📒", price: 0, triggers: [{ on: "battle_start", effects: [{ type: "energy", amount: 1 }] }] },
-  { id: "armband", kind: "relic", icon: "🛡️", price: 0, triggers: [{ on: "guarded", effects: [{ type: "energy", amount: 1 }] }] },
-  { id: "amulet", kind: "relic", icon: "🧿", price: 0, triggers: [{ on: "damaged", when: [{ type: "hpBelow", ratio: 0.5 }, { type: "once" }], effects: [{ type: "heal", amount: 2 }] }] },
-  { id: "spikes", kind: "relic", icon: "🌵", price: 0, triggers: [{ on: "guarded", when: [{ type: "everyNth", n: 2 }], effects: [{ type: "damage", amount: 1 }] }] },
-  { id: "iron_wall", kind: "relic", icon: "🧱", price: 0, mods: { guardDefenseAdd: 1 } },
-  { id: "poker_face", kind: "relic", icon: "🃏", price: 0, mods: { tellAccuracyAdd: -0.4 } },
-  { id: "silence", kind: "relic", icon: "🔇", price: 0, mods: { locksItems: true } },
-  { id: "allegro", kind: "relic", icon: "🎵", price: 0, mods: { bpmAdd: 20 } },
+  { id: "class_log", kind: "relic", icon: "📒", price: 0, tier: 1, triggers: [{ on: "battle_start", effects: [{ type: "energy", amount: 1 }] }] },
+  { id: "armband", kind: "relic", icon: "🛡️", price: 0, tier: 1, triggers: [{ on: "guarded", effects: [{ type: "energy", amount: 1 }] }] },
+  { id: "amulet", kind: "relic", icon: "🧿", price: 0, tier: 1, triggers: [{ on: "damaged", when: [{ type: "hpBelow", ratio: 0.5 }, { type: "once" }], effects: [{ type: "heal", amount: 2 }] }] },
+  { id: "spikes", kind: "relic", icon: "🌵", price: 0, tier: 1, triggers: [{ on: "guarded", when: [{ type: "everyNth", n: 2 }], effects: [{ type: "damage", amount: 1 }] }] },
+  { id: "onigiri", kind: "relic", icon: "🍙", price: 0, tier: 1, triggers: [{ on: "round", when: [{ type: "everyNth", n: 4 }], effects: [{ type: "heal", amount: 1 }] }] },
+  { id: "alarm_clock", kind: "relic", icon: "⏰", price: 0, tier: 1, triggers: [{ on: "wait", effects: [{ type: "energy", amount: 1 }] }] },
+  { id: "mirror", kind: "relic", icon: "🪞", price: 0, tier: 1, triggers: [{ on: "clash", effects: [{ type: "damage", amount: 1 }] }] },
+  { id: "iron_wall", kind: "relic", icon: "🧱", price: 0, tier: 2, mods: { guardDefenseAdd: 1 } },
+  { id: "poker_face", kind: "relic", icon: "🃏", price: 0, tier: 2, mods: { tellAccuracyAdd: -0.4 } },
+  { id: "allegro", kind: "relic", icon: "🎵", price: 0, tier: 2, mods: { bpmAdd: 20 } },
+  { id: "power_bank", kind: "relic", icon: "🔋", price: 0, tier: 2, mods: { maxEnergyAdd: 1 }, triggers: [{ on: "battle_start", effects: [{ type: "energy", amount: 1 }] }] },
+  { id: "magnet", kind: "relic", icon: "🧲", price: 0, tier: 2, triggers: [{ on: "guarded", effects: [{ type: "drain", amount: 1 }] }] },
+  { id: "backpack", kind: "relic", icon: "🎒", price: 0, tier: 2, mods: { maxHpAdd: 2 } },
+  { id: "mask", kind: "relic", icon: "🎭", price: 0, tier: 2, mods: { tellChanceMult: 0 } },
+  { id: "fang", kind: "relic", icon: "🧛", price: 0, tier: 2, triggers: [{ on: "hit", effects: [{ type: "heal", amount: 1 }] }] },
+  { id: "silence", kind: "relic", icon: "🔇", price: 0, tier: 3, mods: { locksItems: true } },
+  { id: "boxing_gloves", kind: "relic", icon: "🥊", price: 0, tier: 3, mods: { damageBonus: 1 } },
+  { id: "pressure", kind: "relic", icon: "😰", price: 0, tier: 3, mods: { perfectWindowMult: 0.7 } },
+  { id: "yawn", kind: "relic", icon: "🥱", price: 0, tier: 3, mods: { feverThresholdAdd: 4 } },
 ];
 
 export const ALL_ITEMS: Item[] = [...CONSUMABLES, ...RELICS, ...ENEMY_RELICS];
@@ -138,6 +157,7 @@ export function combineMods(relics: readonly Relic[]): Modifiers {
   for (const r of relics) {
     if (!r.mods) continue;
     m.maxEnergyAdd += r.mods.maxEnergyAdd ?? 0;
+    m.maxHpAdd += r.mods.maxHpAdd ?? 0;
     m.perfectWindowMult *= r.mods.perfectWindowMult ?? 1;
     m.tellChanceMult *= r.mods.tellChanceMult ?? 1;
     m.tellAccuracyAdd += r.mods.tellAccuracyAdd ?? 0;
@@ -195,6 +215,11 @@ export function applyEffect(effect: Effect, ctx: EffectContext): EffectReport {
       report.fill = !!effect.fill;
       break;
     }
+    case "drain":
+      report.side = "foe";
+      report.amount = Math.min(effect.amount, ctx.foe.energy);
+      ctx.foe.energy -= report.amount;
+      break;
     case "hurtSelf":
       report.amount = Math.min(effect.amount, ctx.self.hp);
       ctx.self.hp -= report.amount;

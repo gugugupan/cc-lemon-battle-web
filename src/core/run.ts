@@ -9,6 +9,7 @@ export const START_SLOTS = 2;
 export const MAX_SLOTS = 4;
 export const VICTORY_HEAL = 1;
 export const ENEMY_NAME_COUNT = 12;
+export const MAX_ENEMY_RELICS = 6;
 export const PLAYER_MODEL = "character-male-a";
 /** Which models can play each enemy name (index = name number), so タカシ isn't drawn as a girl. */
 const NAME_BODIES: ("male" | "female" | "any")[] = ["male", "male", "female", "female", "any", "male", "female", "any", "female", "male", "male", "any"];
@@ -40,11 +41,13 @@ export interface StockEntry {
 
 /**
  * Enemy for the n-th fight (1-based). Everything ramps with n: more HP, faster tempo, a sharper
- * and more aggressive brain, fewer tells, and relics from the fourth fight on.
+ * and more aggressive brain, fewer tells, more energy, and a relic every third fight from the
+ * fourth on (up to six), drawn from stronger tiers as the run goes.
  */
 export function enemyFor(n: number, rng: Rng): EnemySpec {
   const k = n - 1;
-  const relicCount = Math.min(3, Math.floor((k + 2) / 5));
+  const relicCount = Math.min(MAX_ENEMY_RELICS, Math.floor(k / 3));
+  const tier = n >= 10 ? 3 : n >= 6 ? 2 : 1;
   const nameIndex = rng.int(0, ENEMY_NAME_COUNT - 1);
   const body = NAME_BODIES[nameIndex];
   return {
@@ -53,8 +56,8 @@ export function enemyFor(n: number, rng: Rng): EnemySpec {
     rank: Math.min(RANK_COUNT - 1, Math.floor(k / 3)),
     color: rng.pick(ENEMY_COLORS),
     maxHp: Math.min(9, 3 + Math.floor(k / 4)),
-    maxEnergy: 3,
-    startEnergy: n >= 8 ? 1 : 0,
+    maxEnergy: n >= 10 ? 4 : 3,
+    startEnergy: n >= 12 ? 2 : n >= 6 ? 1 : 0,
     tellChance: Math.max(0.25, 0.5 - 0.015 * k),
     tellAccuracy: Math.max(0.6, 0.8 - 0.015 * k),
     ai: {
@@ -64,7 +67,7 @@ export function enemyFor(n: number, rng: Rng): EnemySpec {
       caution: Math.min(1.2, 0.8 + 0.03 * k),
       randomness: Math.max(0.05, 0.35 - 0.02 * k),
     },
-    relics: rng.shuffle(ENEMY_RELICS).slice(0, relicCount),
+    relics: rng.shuffle(ENEMY_RELICS.filter((r) => (r.tier ?? 1) <= tier)).slice(0, relicCount),
     bpm: Math.min(150, 92 + 3 * k),
   };
 }

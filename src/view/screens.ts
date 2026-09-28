@@ -1,5 +1,5 @@
 import type { BeatClock } from "../audio/clock";
-import { type EnemySpec, fightBpm } from "../core/battle";
+import { type EnemySpec, enemyStats, fightBpm } from "../core/battle";
 import type { Item } from "../core/items";
 import { type Run, sellPrice, SERVICES, type ServiceId } from "../core/run";
 import { t } from "../i18n";
@@ -161,6 +161,7 @@ export class Screens {
 
   intro(run: Run, onFight: () => void): void {
     const e = run.enemy;
+    const stats = enemyStats(e);
     const relics = e.relics.length ? e.relics.map(itemRow).join("") : `<p class="muted">${t("none")}</p>`;
     const panel = h(`<div class="panel intro-panel" style="--accent:${e.color}">
       <div class="intro-head"><span class="vs">${t("introVs")}</span><span class="round-chip">${t("round", run.round)}</span></div>
@@ -170,8 +171,8 @@ export class Screens {
           <div class="intro-name">${escape(enemyName(e))}</div>
           <div class="rank-tag">${escape(enemyRank(e))}</div>
           <dl class="stats">
-            <dt>${t("hp")}</dt><dd class="hearts">${pips(e.maxHp, e.maxHp, "heart", "heart empty")}</dd>
-            <dt>${t("energy")}</dt><dd class="energy">${pips(e.startEnergy, e.maxEnergy, "lemon", "lemon empty")}</dd>
+            <dt>${t("hp")}</dt><dd class="hearts">${pips(stats.maxHp, stats.maxHp, "heart", "heart empty")}</dd>
+            <dt>${t("energy")}</dt><dd class="energy">${pips(stats.startEnergy, stats.maxEnergy, "lemon", "lemon empty")}</dd>
             <dt>${t("tempo")}</dt><dd>♩ ${fightBpm(e, run.relics)}</dd>
             <dt>${t("tellRate")}</dt><dd>${Math.round(e.tellChance * 100)}%</dd>
           </dl>

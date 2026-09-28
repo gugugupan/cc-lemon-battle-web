@@ -67,6 +67,13 @@ export type BattleEvent =
   | { type: "wait" }
   | { type: "finished"; winner: Exclude<Winner, null> };
 
+/** The enemy's stats once its own relics are applied (what the intro card shows). */
+export function enemyStats(spec: EnemySpec): { maxHp: number; maxEnergy: number; startEnergy: number } {
+  const mods = combineMods(spec.relics);
+  const maxEnergy = spec.maxEnergy + mods.maxEnergyAdd;
+  return { maxHp: spec.maxHp + mods.maxHpAdd, maxEnergy, startEnergy: Math.min(maxEnergy, spec.startEnergy) };
+}
+
 /** Tempo of a fight against `spec` after both sides' relics. */
 export function fightBpm(spec: EnemySpec, playerRelics: readonly Relic[]): number {
   const mine = combineMods(playerRelics);
@@ -117,11 +124,16 @@ export class Battle {
     const enemyMods = combineMods(spec.relics);
     this.enemyMods = enemyMods;
     this.player = { hp: loadout.hp, maxHp: loadout.maxHp, energy: 0, maxEnergy: 3 + this.mods.maxEnergyAdd };
-    this.enemy = { hp: spec.maxHp, maxHp: spec.maxHp, energy: spec.startEnergy, maxEnergy: spec.maxEnergy + enemyMods.maxEnergyAdd };
+    const stats = enemyStats(spec);
+    this.enemy = { hp: stats.maxHp, maxHp: stats.maxHp, energy: stats.startEnergy, maxEnergy: stats.maxEnergy };
     this.bpm = fightBpm(spec, loadout.relics);
-    this.feverThreshold = Math.max(1, FEVER_THRESHOLD + this.mods.feverThresholdAdd);
+    this.feverThreshold = Math.max(1, FEVER_THRESHOLD + this.mods.feverThresholdAdd + enemyMods.feverThresholdAdd);
     this.playerRelics = new RelicRunner(loadout.relics);
     this.enemyRelics = new RelicRunner(spec.relics);
+  }
+
+  get perfectWindowMult(): number {
+    return this.mods.perfectWindowMult * this.enemyMods.perfectWindowMult;
   }
 
   /** An enemy relic can forbid consumables for the whole fight. */
@@ -183,6 +195,8 @@ export class Battle {
     this.perfectStreak = 0;
     this.emit({ type: "wait" });
     this.setCombo(0);
+    this.fire("player", "wait", null);
+    this.fire("enemy", "wait", null);
     this.checkWinner();
   }
 
@@ -194,7 +208,7 @@ export class Battle {
     if (nearest % BEATS_PER_BAR !== ACTION_BEAT || this.isRestBar(bar) || this.actedBars.has(bar)) return null;
     const enemyAction = this.enemyChoice ?? this.decideEnemy();
     const delta = (beatPos - nearest) * secondsPerBeat;
-    const grade = judge(delta, this.mods.perfectWindowMult);
+    const grade = judge(delta, this.perfectWindowMult);
     this.actedBars.add(bar);
     if (this.options.restBars) this.restBars.add(bar + 1);
     this.emit({ type: "judge", grade, delta, what: "action" });
@@ -229,7 +243,7 @@ export class Battle {
     if (nearest % BEATS_PER_BAR === ACTION_BEAT || this.isRestBar(bar) || this.itemBeats.has(nearest)) return null;
     this.itemBeats.add(nearest);
     const delta = (beatPos - nearest) * secondsPerBeat;
-    const grade = judge(delta, this.mods.perfectWindowMult);
+    const grade = judge(delta, this.perfectWindowMult);
     this.emit({ type: "judge", grade, delta, what: "item" });
     this.trackPerfect(grade);
     this.loadout.slots[slot] = null;

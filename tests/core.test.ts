@@ -176,6 +176,20 @@ describe("run", () => {
     expect(tenth.relics.length).toBeGreaterThan(first.relics.length);
   });
 
+  it("gives enemies more relics, from stronger tiers, as the run goes on", () => {
+    const rng = new Rng(3);
+    expect(enemyFor(1, rng).relics.length).toBe(0);
+    expect(enemyFor(3, rng).relics.length).toBe(0);
+    expect(enemyFor(4, rng).relics.length).toBe(1);
+    expect(enemyFor(19, rng).relics.length).toBe(6);
+    for (let i = 0; i < 50; i++) {
+      for (const r of enemyFor(5, rng).relics) expect(r.tier).toBe(1);
+      for (const r of enemyFor(9, rng).relics) expect(r.tier).toBeLessThanOrEqual(2);
+    }
+    expect(enemyFor(12, rng).startEnergy).toBe(2);
+    expect(enemyFor(10, rng).maxEnergy).toBe(4);
+  });
+
   it("pays out, heals and restocks after a win", () => {
     const run = new Run(1);
     run.finishBattle(true, 3);
@@ -294,6 +308,45 @@ describe("rule-changing relics", () => {
     for (let b = 0; b < 7; b++) tea.onBeat(b);
     tea.pressAction("charge", 7, spb);
     expect(tea.isRestBar(2)).toBe(true);
+  });
+
+  it("backpack, power bank and pressure change the enemy's stats and the player's window", () => {
+    const { battle } = withEnemyRelics(["backpack", "power_bank", "pressure", "yawn"]);
+    expect(battle.enemy.maxHp).toBe(battle.spec.maxHp + 2);
+    expect(battle.enemy.maxEnergy).toBe(4);
+    expect(battle.enemy.energy).toBe(battle.spec.startEnergy + 1);
+    expect(battle.perfectWindowMult).toBeCloseTo(0.7);
+    expect(battle.feverThreshold).toBe(14);
+  });
+
+  it("alarm clock charges the enemy whenever the player waits", () => {
+    const { battle } = withEnemyRelics(["alarm_clock"]);
+    battle.enemy.energy = 0;
+    for (let b = 4; b < 8; b++) {
+      battle.onBeat(b);
+      battle.onOffbeat(b);
+    }
+    expect(battle.enemy.energy).toBeGreaterThanOrEqual(1);
+  });
+
+  it("magnet drains the player's energy when the enemy guards", () => {
+    const { battle, spb } = withEnemyRelics(["magnet"]);
+    battle.spec.ai.randomness = 0;
+    for (let b = 0; b < 7; b++) battle.onBeat(b);
+    battle.player.energy = 2;
+    (battle as unknown as { enemyChoice: string }).enemyChoice = "guard";
+    battle.pressAction("attack", 7, spb);
+    battle.onOffbeat(7);
+    expect(battle.player.energy).toBe(0);
+  });
+
+  it("boxing gloves add 1 to the enemy's landed hits", () => {
+    const { battle, spb } = withEnemyRelics(["boxing_gloves"]);
+    for (let b = 0; b < 7; b++) battle.onBeat(b);
+    battle.enemy.energy = 1;
+    (battle as unknown as { enemyChoice: string }).enemyChoice = "attack";
+    battle.pressAction("charge", 7, spb);
+    expect(battle.player.hp).toBe(3);
   });
 
   it("big bottle starts with 2 energy", () => {
