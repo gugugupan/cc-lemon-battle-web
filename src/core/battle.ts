@@ -307,6 +307,7 @@ export class Battle {
       foe: mine ? this.enemy : this.player,
       round,
       perfectStreak: mine ? this.perfectStreak : 0,
+      combo: mine ? this.combo : 0,
       fever: mine && this.fever,
       foeFever: !mine && this.fever,
       requests: { nullify: false, trueTell: false },

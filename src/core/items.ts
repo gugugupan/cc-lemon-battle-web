@@ -23,8 +23,10 @@ export type Condition =
   | { type: "perfectAction" }
   | { type: "used"; action: ActionId }
   | { type: "perfectStreakEvery"; n: number }
+  | { type: "comboEvery"; n: number }
   | { type: "hpBelow"; ratio: number }
-  | { type: "once" };
+  | { type: "once" }
+  | { type: "upTo"; n: number };
 
 export type Effect =
   | { type: "damage"; amount: number }
@@ -125,13 +127,22 @@ export const CONSUMABLES: Consumable[] = [
 ];
 
 export const RELICS: Relic[] = [
-  { id: "cold_lemon", kind: "relic", icon: "🍋", price: 40, triggers: [{ on: "battle_start", effects: [{ type: "energy", amount: 1 }] }] },
+  {
+    id: "cold_lemon",
+    kind: "relic",
+    icon: "🍋",
+    price: 40,
+    triggers: [
+      { on: "battle_start", effects: [{ type: "energy", amount: 1 }] },
+      { on: "damaged", when: [{ type: "hpBelow", ratio: 0.5 }, { type: "once" }], effects: [{ type: "heal", amount: 1 }] },
+    ],
+  },
   { id: "big_bottle", kind: "relic", icon: "🧃", price: 60, mods: { maxEnergyAdd: 1 }, triggers: [{ on: "battle_start", effects: [{ type: "energy", amount: 2 }] }] },
-  { id: "diary", kind: "relic", icon: "📓", price: 65, mods: { tellChanceMult: 1.5, tellAccuracyAdd: 0.1 } },
-  { id: "xray", kind: "relic", icon: "👓", price: 55, mods: { alwaysTell: true } },
+  { id: "diary", kind: "relic", icon: "📓", price: 55, mods: { tellChanceMult: 1.5, tellAccuracyAdd: 0.1 } },
+  { id: "xray", kind: "relic", icon: "👓", price: 65, mods: { alwaysTell: true } },
   { id: "eco", kind: "relic", icon: "♻️", price: 55, triggers: [{ on: "round", when: [{ type: "used", action: "attack" }, { type: "everyNth", n: 3 }], effects: [{ type: "energy", amount: 1 }] }] },
   { id: "soda_bubbles", kind: "relic", icon: "🫧", price: 60, triggers: [{ on: "perfect", when: [{ type: "perfectStreakEvery", n: 4 }], effects: [{ type: "heal", amount: 1 }] }] },
-  { id: "cheer_flag", kind: "relic", icon: "🚩", price: 55, triggers: [{ on: "fever_start", effects: [{ type: "heal", amount: 2 }] }] },
+  { id: "cheer_flag", kind: "relic", icon: "🚩", price: 55, triggers: [{ on: "round", when: [{ type: "comboEvery", n: 6 }, { type: "upTo", n: 2 }], effects: [{ type: "heal", amount: 1 }] }] },
   { id: "metronome", kind: "relic", icon: "⏱️", price: 50, mods: { perfectWindowMult: 1.5 }, triggers: [{ on: "perfect", when: [{ type: "perfectStreakEvery", n: 3 }], effects: [{ type: "energy", amount: 1 }] }] },
   { id: "double_time", kind: "relic", icon: "⏩", price: 70, mods: { bpmMult: 2, damageBonus: 1 } },
   { id: "tea_break", kind: "relic", icon: "🍵", price: 30, mods: { restBars: true } },
@@ -213,6 +224,8 @@ export interface EffectContext {
   /** From `self`'s point of view; null outside round events. */
   round: RoundResult | null;
   perfectStreak: number;
+  /** Actions in a row (only the player has a combo; enemy relics see 0). */
+  combo: number;
   fever: boolean;
   /** Whether the other side is in FEVER (only the player can be, so this is for enemy relics). */
   foeFever: boolean;
@@ -300,10 +313,19 @@ export class RelicRunner {
         return ctx.round?.player.grade === "perfect";
       case "used":
         return ctx.round?.player.action === c.action && !ctx.round.player.whiffed;
+      case "comboEvery":
+        return ctx.combo > 0 && ctx.combo % c.n === 0;
       case "perfectStreakEvery":
         return ctx.perfectStreak > 0 && ctx.perfectStreak % c.n === 0;
       case "hpBelow":
         return ctx.self.hp / ctx.self.maxHp <= c.ratio;
+      case "upTo": {
+        const countKey = `${key}:upTo`;
+        const count = this.counters.get(countKey) ?? 0;
+        if (count >= c.n) return false;
+        this.counters.set(countKey, count + 1);
+        return true;
+      }
       case "once": {
         const onceKey = `${key}:once`;
         if (this.counters.has(onceKey)) return false;

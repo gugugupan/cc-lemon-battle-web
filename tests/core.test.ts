@@ -353,6 +353,36 @@ describe("rule-changing relics", () => {
     expect(battle.player.hp).toBe(3);
   });
 
+  it("cheer flag heals 1 every sixth action in a row, twice per fight", () => {
+    const { battle, events, spb } = withEnemyRelics([], [relic("cheer_flag")]);
+    let beat = 0;
+    for (let acted = 0; acted < 24; beat++) {
+      battle.onBeat(beat);
+      if (beat % 4 === 3 && !battle.isRestBar(Math.floor(beat / 4))) {
+        battle.player.hp = 3;
+        battle.enemy.hp = 5;
+        battle.pressAction("guard", beat, spb);
+        acted++;
+      }
+      battle.onOffbeat(beat);
+    }
+    const heals = events.filter((e) => e.type === "notice" && e.notice.item.id === "cheer_flag");
+    expect(heals.length).toBe(2);
+  });
+
+  it("cold lemon heals once when HP drops to half", () => {
+    const { battle } = withEnemyRelics([], [relic("cold_lemon")]);
+    expect(battle.player.energy).toBe(1);
+    const runner = (battle as unknown as { fire: (side: string, e: string, r: unknown) => void });
+    const hit = { player: { damageTaken: 1, damageDealt: 0, guarded: false, action: "charge", whiffed: false, grade: null }, enemy: {}, clash: false };
+    battle.player.hp = 2;
+    runner.fire("player", "damaged", hit);
+    expect(battle.player.hp).toBe(3);
+    battle.player.hp = 2;
+    runner.fire("player", "damaged", hit);
+    expect(battle.player.hp).toBe(2);
+  });
+
   it("big bottle starts with 2 energy", () => {
     const { battle } = withEnemyRelics([], [relic("big_bottle")]);
     expect(battle.player.energy).toBe(2);
