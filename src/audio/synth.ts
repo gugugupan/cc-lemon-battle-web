@@ -21,15 +21,16 @@ export class Synth {
   }
 
   /** One beat of the groove: kick on 1 and 3, hats between, a clap and bright ping on 「モン」. */
-  beat(at: number, beatInBar: number, bar: BarSound, spb: number, groove: boolean): void {
+  /** Beat ticks (quieter when music plays); `groove` adds the built-in kick/hat for when there is no music. */
+  beat(at: number, beatInBar: number, bar: BarSound, spb: number, groove: boolean, tickLevel = 1): void {
     const rest = bar === "rest";
-    const level = rest ? 0.45 : 1;
+    const level = (rest ? 0.45 : 1) * tickLevel;
     if (groove) {
       if (beatInBar === 0 || beatInBar === 2) this.kick(at, 0.8 * level);
       this.hat(at + spb / 2, 0.12 * level);
     }
     if (beatInBar === 3) {
-      if (!rest) this.clap(at, 0.5);
+      if (!rest) this.clap(at, 0.5 * tickLevel);
       this.tone(at, rest ? 660 : 1320, 0.09, rest ? 0.1 : 0.28, "triangle");
     } else {
       this.tone(at, rest ? 440 : 880, 0.05, rest ? 0.07 : 0.16, "sine");

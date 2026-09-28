@@ -8,6 +8,8 @@ const STRINGS = {
   howto: { ja: "遊び方", zh: "玩法" },
   best: { ja: "最高記録 %d 勝", zh: "最高纪录 %d 胜" },
   language: { ja: "中文", zh: "日本語" },
+  musicOn: { ja: "♪ 音楽：オン", zh: "♪ 音乐：开" },
+  musicOff: { ja: "♪ 音楽：オフ", zh: "♪ 音乐：关" },
   chant: { ja: "C,C,レ,モン", zh: "C,C,柠,檬" },
   rest: { ja: "結算", zh: "结算" },
   round: { ja: "第 %d 戦", zh: "第 %d 战" },

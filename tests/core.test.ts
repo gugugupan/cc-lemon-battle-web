@@ -197,9 +197,9 @@ describe("run", () => {
   it("gives enemies more relics, from stronger tiers, as the run goes on", () => {
     const rng = new Rng(3);
     expect(enemyFor(1, rng).relics.length).toBe(0);
-    expect(enemyFor(4, rng).relics.length).toBe(0);
-    expect(enemyFor(6, rng).relics.length).toBe(1);
-    expect(enemyFor(26, rng).relics.length).toBe(6);
+    expect(enemyFor(6, rng).relics.length).toBe(0);
+    expect(enemyFor(7, rng).relics.length).toBe(1);
+    expect(enemyFor(32, rng).relics.length).toBe(6);
     for (let i = 0; i < 50; i++) {
       for (const r of enemyFor(5, rng).relics) expect(r.tier).toBe(1);
       for (const r of enemyFor(9, rng).relics) expect(r.tier).toBeLessThanOrEqual(2);
@@ -230,12 +230,12 @@ describe("run", () => {
     expect(run.relicPick.length).toBe(0);
   });
 
-  it("charges for 2 from fight 8, and chargers always do", () => {
+  it("charges for 2 from fight 10, and chargers always do", () => {
     const rng = new Rng(5);
     for (let i = 0; i < 40; i++) {
       const early = enemyFor(3, rng);
       expect(early.chargeBonus).toBe(early.personality === "charger" ? 1 : 0);
-      expect(enemyFor(8, rng).chargeBonus).toBe(1);
+      expect(enemyFor(10, rng).chargeBonus).toBe(1);
     }
     const e = { hp: 5, maxHp: 5, energy: 0, maxEnergy: 3 };
     resolve({ hp: 5, maxHp: 5, energy: 0, maxEnergy: 3 }, "guard", e, "charge", { enemyChargeBonus: 1 });

@@ -111,3 +111,13 @@ export function loadTutorialDone(): boolean {
 export function saveTutorialDone(): void {
   write(TUTORIAL_KEY, "done");
 }
+
+const MUSIC_KEY = "cc-lemon:music";
+
+export function loadMusicOn(): boolean {
+  return read(MUSIC_KEY) !== "off";
+}
+
+export function saveMusicOn(on: boolean): void {
+  write(MUSIC_KEY, on ? "on" : "off");
+}

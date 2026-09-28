@@ -23,6 +23,8 @@ export class BeatClock {
   /** Asked when a beat is scheduled, so rest bars can sound different. */
   barSound: (bar: number) => BarSound = () => "call";
   groove = true;
+  /** Volume of the beat ticks (turned down while music plays). */
+  tickLevel = 1;
 
   private t0 = 0;
   private nextScheduled = 0;
@@ -38,6 +40,11 @@ export class BeatClock {
     } catch {
       this.inputOffset = 0;
     }
+  }
+
+  /** Audio time of beat 0 of the current run of the clock. */
+  get startTime(): number {
+    return this.t0;
   }
 
   get secondsPerBeat(): number {
@@ -114,7 +121,7 @@ export class BeatClock {
       const beat = this.nextScheduled;
       const at = this.t0 + beat * this.secondsPerBeat;
       if (at >= this.ctx.currentTime - 0.01) {
-        this.synth.beat(at, beat % 4, this.barSound(Math.floor(beat / 4)), this.secondsPerBeat, this.groove);
+        this.synth.beat(at, beat % 4, this.barSound(Math.floor(beat / 4)), this.secondsPerBeat, this.groove, this.tickLevel);
       }
       this.nextScheduled++;
     }

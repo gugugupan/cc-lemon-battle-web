@@ -110,6 +110,8 @@ export class Screens {
     onCalibrate: () => void,
     onHowto: () => void,
     onLang: () => void,
+    musicOn = true,
+    onMusic: () => void = () => {},
   ): void {
     const badge = clear
       ? `<div class="cleared-badge"><span class="cleared-main">${t("clearedBadge")}</span><span class="cleared-date">${t("clearedOn", formatDate(clear.first))}${clear.count > 1 ? t("clearedTimes", clear.count) : ""}</span></div>`
@@ -125,6 +127,7 @@ export class Screens {
       { label: `${t("tutorial")}${tutorialDone ? " ✓" : ""}`, onClick: onTutorial },
       { label: t("howto"), onClick: onHowto },
       { label: t("calibrate"), onClick: onCalibrate },
+      { label: t(musicOn ? "musicOn" : "musicOff"), onClick: onMusic, ghost: true },
       { label: t("language"), onClick: onLang, ghost: true },
     ], "title");
   }

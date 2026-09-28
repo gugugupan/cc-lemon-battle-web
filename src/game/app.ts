@@ -1,4 +1,5 @@
 import { BeatClock } from "../audio/clock";
+import { MusicPlayer, STYLES, type StyleId } from "../audio/music";
 import { Battle, type BattleEvent } from "../core/battle";
 import { Rng } from "../core/rng";
 import type { ActionId, RoundResult } from "../core/rules";
@@ -15,17 +16,23 @@ import {
   loadBought,
   loadClear,
   loadLastCharacter,
+  loadMusicOn,
   loadTutorialDone,
   recordBought,
   recordClear,
   saveBestFor,
   saveLastCharacter,
+  saveMusicOn,
   saveTutorialDone,
 } from "./progress";
 import { Stage } from "../view/stage";
 
 const KEY_ACTIONS: Record<string, ActionId> = { ArrowRight: "attack", ArrowLeft: "guard", ArrowDown: "charge", ArrowUp: "special" };
 const END_DELAY_MS = 1300;
+const NORMAL_PLAYLIST: StyleId[] = ["lofi", "lofi2", "lofi3"];
+const MUSIC_VOLUME = 0.5;
+/** Beat ticks stay audible under the music so the 「モン」 beat is still easy to hear. */
+const MUSIC_TICK_LEVEL = 0.45;
 const TUTORIAL_DUMMY = "character-male-b";
 /** How long the confetti plays before the clear panel appears. */
 const CELEBRATION_MS = 2200;
@@ -33,6 +40,9 @@ const CELEBRATION_MS = 2200;
 /** Glues the pieces together: clock → battle engine → stage + HUD, and the screens between fights. */
 export class App {
   private clock = new BeatClock();
+  private music = new MusicPlayer(this.clock.ctx);
+  private musicOn = loadMusicOn();
+  private playlistIndex = 0;
   private stage: Stage;
   private hud: Hud;
   private screens: Screens;
@@ -54,6 +64,7 @@ export class App {
     this.hud.onAction = (a, e) => this.act(a, e);
     this.hud.onItem = (slot, e) => this.useItem(slot, e);
     this.stage.onFrame = (dt) => this.frame(dt);
+    this.music.setVolume(MUSIC_VOLUME);
     const idle = characterById(this.lastCharacter).model;
     void this.stage.player.setModel(idle);
     void this.stage.enemy.setModel("character-female-b");
@@ -108,7 +119,7 @@ export class App {
   }
 
   private showTitle(): void {
-    this.clock.stop();
+    this.stopBeat();
     this.battle = null;
     this.hud.show(false);
     this.stage.setFever(false);
@@ -125,6 +136,12 @@ export class App {
       () => {
         setLang(currentLang() === "ja" ? "zh" : "ja");
         this.applyLang();
+        this.showTitle();
+      },
+      this.musicOn,
+      () => {
+        this.musicOn = !this.musicOn;
+        saveMusicOn(this.musicOn);
         this.showTitle();
       },
     );
@@ -172,6 +189,7 @@ export class App {
   }
 
   private startRun(): void {
+    this.playlistIndex = 0;
     this.run = new Run(undefined, this.character);
     this.run.onPurchase = (item) => recordBought(item.id);
     this.showIntro();
@@ -190,7 +208,7 @@ export class App {
   private showIntro(): void {
     const run = this.run!;
     this.battle = null;
-    this.clock.stop();
+    this.stopBeat();
     this.stage.setEnemyColor(run.enemy.color);
     void this.stage.player.setModel(run.character.model);
     void this.stage.enemy.setModel(run.enemy.model);
@@ -230,6 +248,24 @@ export class App {
     battle.start();
     this.hud.setStats(battle.player, battle.enemy);
     this.clock.start(bpm);
+    this.startMusic(battle, bpm);
+  }
+
+  /** Normal fights cycle through the lo-fi tracks in order; elites get the funk track. */
+  private startMusic(battle: Battle, bpm: number): void {
+    const on = this.musicOn;
+    this.clock.groove = !on;
+    this.clock.tickLevel = on ? MUSIC_TICK_LEVEL : 1;
+    if (!on) return;
+    const style = battle.spec.elite ? STYLES.funk : STYLES[NORMAL_PLAYLIST[this.playlistIndex++ % NORMAL_PLAYLIST.length]];
+    this.music.bpm = bpm;
+    this.music.fever = false;
+    this.music.start(style, this.clock.startTime);
+  }
+
+  private stopBeat(): void {
+    this.clock.stop();
+    this.music.stop();
   }
 
   // ---------- tutorial ----------
@@ -252,7 +288,7 @@ export class App {
   private showTutorialStep(): void {
     const tut = this.tut!;
     const step = TUTORIAL_STEPS[tut.index];
-    this.clock.stop();
+    this.stopBeat();
     tut.line = 0;
     tut.practicing = false;
     tut.tracker = null;
@@ -344,7 +380,7 @@ export class App {
     const tut = this.tut!;
     if (step.goal === "win") {
       tut.practicing = false;
-      this.clock.stop();
+      this.stopBeat();
       this.hud.dialogue(t("tut_fight_lost"));
       tut.line = step.lines.length - 1;
       return;
@@ -435,6 +471,7 @@ export class App {
         break;
       case "fever":
         this.stage.setFever(e.on);
+        this.music.fever = e.on;
         if (e.on) synth.fever();
         break;
       case "wait": {
@@ -561,7 +598,7 @@ export class App {
     const run = this.run;
     const battle = this.battle;
     if (!run || !battle || this.battle !== battle) return;
-    this.clock.stop();
+    this.stopBeat();
     this.hud.hideTell();
     this.stage.setFever(false);
     const won = winner === "player";

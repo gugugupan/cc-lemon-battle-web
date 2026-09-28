@@ -45,7 +45,7 @@ export interface StockEntry {
 /** Every n-th fight is an elite: tougher, and its reward includes a free relic pick. */
 export const ELITE_EVERY = 5;
 /** From this fight on every enemy gets +1 energy per charge (chargers always do). */
-export const STRONG_CHARGE_FROM = 8;
+export const STRONG_CHARGE_FROM = 10;
 export const RELIC_PICK_SIZE = 3;
 
 /** Personality odds by stage: easy-to-read styles early, the reader later. */
@@ -61,14 +61,14 @@ function personalityFor(n: number, rng: Rng): Personality {
 
 /**
  * Enemy for the n-th fight (1-based). Everything ramps with n: more HP, faster tempo, a sharper
- * and more aggressive brain, fewer tells, more energy, and a relic from the sixth fight on (one
- * more every fourth fight, up to six), drawn from stronger tiers as the run goes. Each enemy has
+ * and more aggressive brain, fewer tells, more energy, and a relic from the seventh fight on (one
+ * more every fifth fight, up to six), drawn from stronger tiers as the run goes. Each enemy has
  * a personality that bends its brain; every fifth fight is an elite.
  */
 export function enemyFor(n: number, rng: Rng, playerModel = ""): EnemySpec {
   const k = n - 1;
   const elite = n % ELITE_EVERY === 0;
-  const relicCount = Math.min(MAX_ENEMY_RELICS, Math.max(0, Math.floor((k - 1) / 4)) + (elite && n >= 10 ? 1 : 0));
+  const relicCount = Math.min(MAX_ENEMY_RELICS, Math.max(0, Math.floor((k - 1) / 5)) + (elite && n >= 10 ? 1 : 0));
   const tier = n >= 10 ? 3 : n >= 6 ? 2 : 1;
   const nameIndex = rng.int(0, ENEMY_NAME_COUNT - 1);
   const body = NAME_BODIES[nameIndex];
@@ -89,7 +89,7 @@ export function enemyFor(n: number, rng: Rng, playerModel = ""): EnemySpec {
     tellAccuracy: Math.max(0.6, 0.8 - 0.015 * k),
     ai: {
       ...DEFAULT_AI,
-      aggression: Math.min(1.8, 1.0 + 0.05 * k) * p.aggression * (elite ? 1.05 : 1),
+      aggression: Math.min(1.7, 1.0 + 0.04 * k) * p.aggression * (elite ? 1.05 : 1),
       readSkill: Math.min(1.3, 0.3 + 0.04 * k) * p.readSkill,
       caution: 0.8 * p.caution,
       randomness: Math.min(0.6, Math.max(0.05, 0.35 - 0.02 * k) * p.randomness),

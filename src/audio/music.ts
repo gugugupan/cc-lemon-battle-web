@@ -268,11 +268,12 @@ export class MusicPlayer implements Voices {
     this.master.gain.value = v;
   }
 
-  start(style: Style): void {
+  /** Starts `style` with its first 16th at `at` (defaults to right away) — pass the beat clock's beat-0 time to lock the two together. */
+  start(style: Style, at = this.ctx.currentTime + 0.1): void {
     this.stop();
     this.style = style;
     this.stepIndex = 0;
-    this.nextAt = this.ctx.currentTime + 0.1;
+    this.nextAt = at;
     this.timer = window.setInterval(() => this.schedule(), 25);
     this.schedule();
   }
