@@ -3,7 +3,7 @@ import { Battle, type BattleEvent } from "../core/battle";
 import type { EffectReport } from "../core/items";
 import { Rng } from "../core/rng";
 import type { ActionId, RoundResult } from "../core/rules";
-import { Run } from "../core/run";
+import { PLAYER_MODEL, Run } from "../core/run";
 import { currentLang, setLang, t } from "../i18n";
 import { Hud, itemName } from "../view/hud";
 import { enemyName, enemyRank, Screens } from "../view/screens";
@@ -12,6 +12,10 @@ import { Stage } from "../view/stage";
 const KEY_ACTIONS: Record<string, ActionId> = { ArrowRight: "attack", ArrowLeft: "guard", ArrowDown: "charge", ArrowUp: "special" };
 const BEST_KEY = "cc-lemon:best";
 const END_DELAY_MS = 1300;
+
+function modelUrl(name: string): string {
+  return `${import.meta.env.BASE_URL}models/${name}.glb`;
+}
 
 function loadBest(): number {
   try {
@@ -41,6 +45,8 @@ export class App {
     this.hud.onAction = (a, e) => this.act(a, e);
     this.hud.onItem = (slot, e) => this.useItem(slot, e);
     this.stage.onFrame = (dt) => this.frame(dt);
+    void this.stage.player.setModel(modelUrl(PLAYER_MODEL));
+    void this.stage.enemy.setModel(modelUrl("character-female-b"));
     this.applyLang();
     window.addEventListener("keydown", (e) => this.key(e));
     this.showTitle();
@@ -111,6 +117,8 @@ export class App {
     this.battle = null;
     this.clock.stop();
     this.stage.setEnemyColor(run.enemy.color);
+    void this.stage.player.setModel(modelUrl(PLAYER_MODEL));
+    void this.stage.enemy.setModel(modelUrl(run.enemy.model));
     this.stage.setFever(false);
     this.hud.show(false);
     this.screens.intro(run, () => this.beginBattle());
@@ -200,6 +208,10 @@ export class App {
         break;
       }
       case "finished":
+        this.stage.tweens.delay(0.35, () => {
+          this.stage.player.play(e.winner === "player" ? "win" : "lose");
+          this.stage.enemy.play(e.winner === "enemy" ? "win" : "lose");
+        });
         window.setTimeout(() => this.endBattle(e.winner), END_DELAY_MS);
         break;
     }
@@ -240,7 +252,9 @@ export class App {
     for (const side of ["player", "enemy"] as const) {
       const s = r[side];
       if (s.whiffed) continue;
-      if (s.action === "attack" || s.action === "special") this.stage.fighter(side).lunge();
+      const fighter = this.stage.fighter(side);
+      if (s.action === "attack" || s.action === "special") fighter.lunge();
+      fighter.play(s.action);
       if (s.action === "charge") {
         this.stage.fighter(side).charge(this.stage.tweens);
         synth.charge();

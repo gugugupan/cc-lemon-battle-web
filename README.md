@@ -45,5 +45,8 @@ tests/        vitest
 
 ## 素材
 
-没有外部图片和音频：角色和舞台是 Three.js 几何体，图标用 emoji，音效由 Web Audio 实时合成。
+- 角色模型：`public/models/` 来自 [Kenney · Mini Characters](https://kenney.nl/assets/mini-characters)（CC0，许可见 `public/models/License.txt`）。
+  每个 `.glb` 自带动画，`src/view/stage.ts` 的 `CLIPS` 把招式对应到动画名（出拳 / 踢腿 / 蹲下 / 点头 / 摇头 / 跳 / 倒下）；
+  模型加载前或加载失败时，显示原来的胶囊小人。敌人按名字的性别从模型池里抽。
+- 其余没有外部图片和音频：舞台是 Three.js 几何体，图标用 emoji，音效由 Web Audio 实时合成。
 字体从 Google Fonts 加载（M PLUS Rounded 1c、Noto Sans SC，OFL）。

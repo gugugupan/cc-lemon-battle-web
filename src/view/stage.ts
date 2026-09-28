@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import { type GLTF, GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
 import type { ActionId } from "../core/rules";
 import { ease, Tweens } from "./tween";
 
@@ -50,15 +52,58 @@ function bubbleRing(): THREE.Texture {
   return tex;
 }
 
-/** A chunky low-poly kid: capsule body, round head, dot eyes, one fist that punches. */
+export type Motion = "attack" | "special" | "guard" | "charge" | "hit" | "win" | "lose";
+
+/** Clip names inside the Kenney Mini Characters files for each motion. */
+const CLIPS: Record<Motion, string> = {
+  attack: "attack-melee-right",
+  special: "attack-kick-right",
+  guard: "crouch",
+  charge: "emote-yes",
+  hit: "emote-no",
+  win: "jump",
+  lose: "die",
+};
+const MODEL_HEIGHT = 2.1;
+/** The crouch clip is a 0.17 s pose; guard holds it this long before standing up. */
+const GUARD_HOLD = 0.5;
+/** Turn the models a little toward the camera so faces read, instead of pure profile. */
+const FACE_CAMERA = 0.45;
+
+const loader = new GLTFLoader();
+const modelCache = new Map<string, Promise<GLTF>>();
+
+function loadModel(url: string): Promise<GLTF> {
+  let cached = modelCache.get(url);
+  if (!cached) {
+    cached = loader.loadAsync(url);
+    modelCache.set(url, cached);
+  }
+  return cached;
+}
+
+/**
+ * One fighter. Shows a rigged glTF character once loaded, and a chunky capsule kid until then
+ * (or if loading fails). Beat hops, lunges and knock-backs are procedural and stack on top of
+ * the character's clips.
+ */
 class FighterModel {
   readonly root = new THREE.Group();
-  readonly body: THREE.Mesh;
+  private proc = new THREE.Group();
+  private body: THREE.Mesh;
   private bodyMat: THREE.MeshStandardMaterial;
   private headMat: THREE.MeshStandardMaterial;
   private fist: THREE.Mesh;
   private shield: THREE.Mesh;
   private aura: THREE.Mesh;
+  private rig: THREE.Object3D | null = null;
+  private rigMaterials: THREE.MeshStandardMaterial[] = [];
+  private mixer: THREE.AnimationMixer | null = null;
+  private clips = new Map<string, THREE.AnimationClip>();
+  private idle: THREE.AnimationAction | null = null;
+  private current: THREE.AnimationAction | null = null;
+  private modelUrl = "";
+  private releaseIn = 0;
   private bob = 0;
   private hurtT = 0;
   private lungeT = 0;
@@ -81,14 +126,7 @@ class FighterModel {
     for (const z of [-0.18, 0.18]) {
       const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 8), eyeMat);
       eye.position.set(0.42 * dir, 2.12, z);
-      this.root.add(eye);
-    }
-    const cheekMat = new THREE.MeshStandardMaterial({ color: "#ff9ab0", roughness: 0.8 });
-    for (const z of [-0.3, 0.3]) {
-      const cheek = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), cheekMat);
-      cheek.position.set(0.4 * dir, 1.95, z);
-      cheek.scale.set(0.6, 0.6, 1.2);
-      this.root.add(cheek);
+      this.proc.add(eye);
     }
     const hair = new THREE.Mesh(new THREE.SphereGeometry(0.54, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2.3), this.bodyMat);
     hair.position.y = 2.1;
@@ -96,6 +134,7 @@ class FighterModel {
     this.fist = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), this.headMat);
     this.fist.position.set(0.62 * dir, 1.15, 0.25);
     this.fist.castShadow = true;
+    this.proc.add(this.body, head, hair, this.fist);
     this.shield = new THREE.Mesh(
       new THREE.CircleGeometry(0.95, 6),
       new THREE.MeshBasicMaterial({ color: "#74c0fc", transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }),
@@ -108,11 +147,81 @@ class FighterModel {
     );
     this.aura.rotation.x = Math.PI / 2;
     this.aura.position.y = 0.3;
-    this.root.add(this.body, head, hair, this.fist, this.shield, this.aura);
+    this.root.add(this.proc, this.shield, this.aura);
   }
 
   setColor(color: string): void {
     this.bodyMat.color.set(color);
+  }
+
+  /** Swaps in a rigged character; the capsule stays up until it has loaded. */
+  async setModel(url: string): Promise<void> {
+    if (url === this.modelUrl) return this.reset();
+    this.modelUrl = url;
+    let gltf: GLTF;
+    try {
+      gltf = await loadModel(url);
+    } catch {
+      return;
+    }
+    if (url !== this.modelUrl) return;
+    if (this.rig) this.root.remove(this.rig);
+    const rig = cloneSkinned(gltf.scene);
+    this.rigMaterials = [];
+    rig.traverse((node) => {
+      const mesh = node as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      mesh.castShadow = true;
+      const mat = (mesh.material as THREE.MeshStandardMaterial).clone();
+      mesh.material = mat;
+      this.rigMaterials.push(mat);
+    });
+    const box = new THREE.Box3().setFromObject(rig);
+    rig.scale.setScalar(MODEL_HEIGHT / Math.max(0.01, box.max.y - box.min.y));
+    rig.rotation.y = this.side === "player" ? Math.PI / 2 - FACE_CAMERA : -Math.PI / 2 + FACE_CAMERA;
+    this.rig = rig;
+    this.root.add(rig);
+    this.proc.visible = false;
+    this.mixer = new THREE.AnimationMixer(rig);
+    this.clips = new Map(gltf.animations.map((c) => [c.name, c]));
+    this.mixer.addEventListener("finished", (e) => {
+      if (e.action === this.current && this.current.loop === THREE.LoopOnce && this.current.clampWhenFinished === false) this.backToIdle();
+    });
+    this.reset();
+  }
+
+  /** Back to the idle loop, e.g. at the start of a fight after a win or loss pose. */
+  reset(): void {
+    if (!this.mixer) return;
+    this.mixer.stopAllAction();
+    this.releaseIn = 0;
+    const clip = this.clips.get("idle");
+    this.idle = clip ? this.mixer.clipAction(clip) : null;
+    this.idle?.reset().play();
+    this.current = this.idle;
+  }
+
+  /** Plays a one-shot motion and blends back to idle; win/lose poses hold their last frame. */
+  play(motion: Motion): void {
+    const clip = this.mixer && this.clips.get(CLIPS[motion]);
+    if (!this.mixer || !clip) return;
+    const action = this.mixer.clipAction(clip);
+    const hold = motion === "lose" || motion === "guard";
+    this.releaseIn = motion === "guard" ? GUARD_HOLD : 0;
+    action.reset();
+    action.setLoop(motion === "win" ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
+    action.clampWhenFinished = hold;
+    action.timeScale = motion === "attack" || motion === "special" ? 1.6 : 1.2;
+    action.fadeIn(0.08).play();
+    if (this.current && this.current !== action) this.current.fadeOut(0.08);
+    this.current = action;
+  }
+
+  private backToIdle(): void {
+    if (!this.idle || !this.current) return;
+    this.idle.reset().fadeIn(0.15).play();
+    this.current.fadeOut(0.15);
+    this.current = this.idle;
   }
 
   bounce(): void {
@@ -122,6 +231,7 @@ class FighterModel {
   hurt(): void {
     this.hurtT = 1;
     this.knockT = 1;
+    this.play("hit");
   }
 
   lunge(): void {
@@ -148,6 +258,11 @@ class FighterModel {
 
   tick(dt: number): void {
     const dir = this.side === "player" ? 1 : -1;
+    this.mixer?.update(dt);
+    if (this.releaseIn > 0) {
+      this.releaseIn -= dt;
+      if (this.releaseIn <= 0) this.backToIdle();
+    }
     this.bob = Math.max(0, this.bob - dt * 5);
     this.hurtT = Math.max(0, this.hurtT - dt * 2.5);
     this.lungeT = Math.max(0, this.lungeT - dt * 4);
@@ -163,6 +278,7 @@ class FighterModel {
     const flash = this.hurtT > 0 ? Math.abs(Math.sin(this.hurtT * 18)) * this.hurtT : 0;
     this.bodyMat.emissive.setRGB(flash, 0.1 * flash, 0.1 * flash);
     this.headMat.emissive.setRGB(flash * 0.6, 0, 0);
+    for (const mat of this.rigMaterials) mat.emissive.setRGB(flash * 0.8, 0.05 * flash, 0.05 * flash);
   }
 }
 
@@ -401,12 +517,12 @@ export class Stage {
     for (const [side, action, mark] of specs) {
       const dir = side === "player" ? -1 : 1;
       const card = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.25, 1.6),
+        new THREE.PlaneGeometry(1.05, 1.35),
         new THREE.MeshBasicMaterial({ map: this.cardTexture(action, labels[action], mark), transparent: true, depthWrite: false, fog: false }),
       );
       card.renderOrder = 10;
       const from = new THREE.Vector3(2.3 * dir, 1.6, 0.6);
-      const to = new THREE.Vector3(0.72 * dir, 2.45, 1.4);
+      const to = new THREE.Vector3(0.62 * dir, 2.95, 1.4);
       card.position.copy(from);
       card.scale.setScalar(0.3);
       this.scene.add(card);
@@ -515,7 +631,7 @@ export class Stage {
   }
 
   cardMeet(): THREE.Vector3 {
-    return new THREE.Vector3(0, 2.45, 1.4);
+    return new THREE.Vector3(0, 2.95, 1.4);
   }
 
   fighter(side: Side): FighterModel {

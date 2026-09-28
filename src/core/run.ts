@@ -9,6 +9,13 @@ export const START_SLOTS = 2;
 export const MAX_SLOTS = 4;
 export const VICTORY_HEAL = 1;
 export const ENEMY_NAME_COUNT = 12;
+export const PLAYER_MODEL = "character-male-a";
+/** Which models can play each enemy name (index = name number), so タカシ isn't drawn as a girl. */
+const NAME_BODIES: ("male" | "female" | "any")[] = ["male", "male", "female", "female", "any", "male", "female", "any", "female", "male", "male", "any"];
+const MODELS = {
+  male: ["character-male-b", "character-male-c", "character-male-d", "character-male-e", "character-male-f"],
+  female: ["character-female-a", "character-female-b", "character-female-c", "character-female-d", "character-female-e", "character-female-f"],
+};
 export const RANK_COUNT = 5;
 export const ENEMY_COLORS = ["#ff8a80", "#8bd17c", "#f6a5c0", "#ffcc66", "#9fa8ff", "#6fd6d0", "#c792ea", "#ffab70"];
 
@@ -33,8 +40,11 @@ export interface StockEntry {
 export function enemyFor(n: number, rng: Rng): EnemySpec {
   const k = n - 1;
   const relicCount = Math.min(3, Math.floor((k + 2) / 5));
+  const nameIndex = rng.int(0, ENEMY_NAME_COUNT - 1);
+  const body = NAME_BODIES[nameIndex];
   return {
-    nameIndex: rng.int(0, ENEMY_NAME_COUNT - 1),
+    nameIndex,
+    model: rng.pick(body === "any" ? [...MODELS.male, ...MODELS.female] : MODELS[body]),
     rank: Math.min(RANK_COUNT - 1, Math.floor(k / 3)),
     color: rng.pick(ENEMY_COLORS),
     maxHp: Math.min(9, 3 + Math.floor(k / 4)),

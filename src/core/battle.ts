@@ -22,6 +22,8 @@ export const FEVER_THRESHOLD = 10;
 
 export interface EnemySpec {
   nameIndex: number;
+  /** Character model file name (without extension) under public/models. */
+  model: string;
   rank: number;
   color: string;
   maxHp: number;
