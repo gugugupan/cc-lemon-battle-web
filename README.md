@@ -1,83 +1,66 @@
-# CC Lemon Battle（网页版）
+# 🍋 CC Lemon Battle
 
-以手游戏「CCレモン」为原型的节奏对战网页游戏，是 Godot 版《8月31日のレモン》（`../cc-lemon-roguelike`）的简化衍生版：
-没有剧情、没有 Boss。目标是**连赢 20 场**：通关后会有庆祝动画，可以就此结束，或者进入**无尽模式**继续挑战（通关时间记在浏览器的 localStorage，标题画面会显示金色的「已通关」徽章）。整个过程是连战——每赢一场敌人就更强，玩家用金币在小卖部买道具、遗物或者休息回血来变强，看能连赢几场。道具栏固定 4 格；小卖部里的「休息」（10 金币 ♥+1）可以重复购买，不想要的东西可以半价卖掉。
+**▶ 在线游玩：https://gugugupan.github.io/cc-lemon-battle-web/**
 
-完整的规则、数据和设计说明见 **[docs/GUIDE.md](docs/GUIDE.md)**。
+以手游戏「CCレモン」为原型的节奏对战 roguelike，浏览器直接玩（电脑键盘 / 手机触屏）。界面支持日文和中文。
 
-## 运行
+> A rhythm-battle roguelike based on the Japanese hand game "CC Lemon". Play it in the browser: https://gugugupan.github.io/cc-lemon-battle-web/
 
-```bash
-npm install
-npm run dev      # http://localhost:5188
-npm test         # 单元测试 + 难度曲线模拟
-npm run build    # 输出静态网站到 dist/
-```
+目标是**连赢 20 场**。每赢一场敌人就更强，HP 会带到下一场；用赢来的金币在小卖部买道具、遗物，或者休息回血。通关后可以进入**无尽模式**继续挑战。
 
 ## 玩法
 
-- 每小节 4 拍「C・C・レ・モン」，**只在第 4 拍出招**：→ 攻击（-1 能量）、← 防御、↓ 蓄力（+1）、↑ 必杀技（-3）。
-- 攻击打蓄力，防御挡攻击，必杀技破防；双方都出攻击时相杀，只打出差值。
-- 不按键 = 观望，对手也不动。出招后直接进入下一小节，回合在第 4 拍的半拍后结算。
-  遗物「🍵 茶歇」会让每次出招后多一个 4 拍的「结算」小节（不能输入），节奏更从容。
-- 对手头上的气泡是破绽提示（不一定是真的）。出现率第 1 场 50%，每场 −1.5%，最低 25%。
-- 1–4 键在第 1–3 拍使用道具；判定 PERFECT 时效果加成。连续 10 次出招进入 FEVER。
-- 手机上可以直接点屏幕上的十字键和道具格。
-- 第一次玩建议先做「节拍校准」，补偿耳机和设备的延迟。
+- 每小节 4 拍「C・C・レ・モン」，**只在第 4 拍出招**：
+  - → 攻击（-1 能量）
+  - ← 防御
+  - ↓ 蓄力（+1 能量）
+  - ↑ 必杀技（-3 能量）
+- 克制关系：攻击打蓄力，防御挡攻击，必杀技破防。双方都出攻击时互相抵消，只打出差值。
+- 第 4 拍不按键就是「观望」，对手也不会动。
+- 对手头上的气泡是破绽提示，但不一定是真的。
+- 1–4 键在第 1–3 拍使用道具，判定 PERFECT 时效果更强。连续出招 10 次进入 **FEVER**。
+- 每 5 场有一个**强敌**，打赢后可以从 3 个遗物里挑一个。
+- 8 个角色，初始遗物、道具、HP、金币各不相同，靠胜场或在小卖部买到特定道具来解锁。
+- 第一次玩建议先看标题画面的「教程」，再做一次「节拍校准」，补偿耳机和设备的延迟。
 
-## 角色（`src/core/characters.ts`）
+完整的规则、数值和设计说明见 **[docs/GUIDE.md](docs/GUIDE.md)**。
 
-开始游戏前选择角色。每个角色有不同的模型、初始遗物 / 道具、HP 和金币；最高纪录按角色分别保存。
+## 本地运行
 
-| 角色 | 定位 | HP | 金币 | 初始遗物 | 初始道具 | 解锁 |
-|---|---|---|---|---|---|---|
-| 普通同学 | 标准型 | 5 | 40 | — | 创可贴 | 默认 |
-| 图书委员 | 悠闲派 | 5 | 0 | 茶歇、冰镇柠檬 | 创可贴 | 默认 |
-| 棒球部 | 连击派 | 5 | 10 | 追击、不屈 | 拳击绷带 ×2 | 默认 |
-| 风纪委员 | 防守派 | 5 | 0 | 反击、僵持 | 盾牌贴纸、暂停 | 默认 |
-| 管乐部 | 蓄力派 | 5 | 10 | 腹式呼吸、满溢 | 波子汽水 ×2 | 在小卖部买到「腹式呼吸」 |
-| 推理社 | 读心派 | 5 | 0 | 侦探帽、观察日记 | — | 在小卖部买到「侦探帽」 |
-| 必杀少年 | 一击必杀 | 4 | 0 | 省力、必杀增幅 | 柠檬炸弹 | 任意角色 8 胜 |
-| 神秘转学生 | 高手挑战 | 3 | 50 | 双倍速、热血 | — | 任意角色 20 胜（通关） |
+需要 Node.js 20.19 以上。
 
-整局平衡：`npm run sim:runs` 模拟每个角色连打 20 场（HP / 金币延续，简单的自动购物策略），输出通关率和平均胜场。
-模拟玩家不会用多数消耗道具、也不会围绕系列构筑，真人玩家通常更强；以它看角色之间的相对强弱。
+```bash
+npm install
+npm run dev        # http://localhost:5188
+npm test           # 单元测试
+npm run sim:runs   # 模拟每个角色完整打 20 场，输出通关率
+npm run build      # 输出静态网站到 dist/
+```
 
-## 道具与遗物
+开发模式下还有一个 BGM 试听页：http://localhost:5188/bgm.html
 
-全部 34 个玩家道具（按系列）和 25 个敌人遗物的完整表格，见 [docs/GUIDE.md](docs/GUIDE.md) 第 6、7 节。
+## 部署
 
-## 结构
+推送到 `main` 后，GitHub Actions（`.github/workflows/deploy.yml`）会依次跑测试、构建，然后把 `dist/` 发布到 GitHub Pages。
+整个游戏是纯静态网站，没有服务器，存档（最高纪录、解锁、设置）只保存在浏览器的 localStorage 里。
+
+## 技术
+
+- **Three.js + Vite + TypeScript**，测试用 vitest。
+- 节拍时钟以 `AudioContext.currentTime` 为准，不依赖画面帧率。按键会换算回按下的那一刻，再扣掉设备的输出延迟和校准值。
+- 所有音效和 BGM 都是 Web Audio 实时合成的，没有音频文件。
+- `src/core/` 是纯规则代码，不依赖浏览器，可以直接测试和模拟。
 
 ```
-src/core/     纯规则（不依赖浏览器），全部可测试
-  rules.ts    招式、判定窗口、结算表
-  ai.ts       敌人 AI（权重 + 预测玩家下一招）、破绽
-  items.ts    道具 / 遗物数据与触发器（事件 + 条件 + 效果）
-  battle.ts   一场战斗的状态机：按拍号推进，处理出招、道具、结算小节、连击 / FEVER
-  run.ts      无限模式：敌人成长公式、金币、小卖部
-  sim.ts      不走时钟的战斗模拟，用来调难度
-src/audio/    Web Audio 节拍时钟（以 AudioContext.currentTime 为准）+ 全合成音效，无音频文件
-src/view/     Three.js 舞台（stage.ts）、DOM HUD（hud.ts）、各画面（screens.ts）
+src/core/     规则：招式与结算、敌人 AI、道具 / 遗物、战斗状态机、连战与小卖部、角色、教程、模拟器
+src/audio/    节拍时钟、音效、BGM 音序器
+src/view/     Three.js 舞台与场景、HUD、各画面
 src/game/     把时钟、战斗、画面串起来（app.ts）
 tests/        vitest
 ```
 
-- 节拍判定：按键事件的 `timeStamp` 换算回音频时间，再扣掉输出延迟和校准值；判定窗口 PERFECT ±50ms、GOOD ±110ms。
-- 敌人成长（`enemyFor`）：HP 每 5 场 +1、BPM 每场 +3、AI 更敢攻、更会读、更少随机，破绽变少，第 6 场起带遗物，第 8 场起蓄力 +2；每个对手有性格，每 5 场一个强敌。详见 docs/GUIDE.md 第 6 节。
-  `npm test` 会打印每场的模拟胜率（不带任何道具时）。
-- 开发模式下 `window.app` 可在控制台访问，方便调试。
+## 素材与许可
 
-## 素材
-
-- 角色模型：`public/models/` 来自 [Kenney · Mini Characters](https://kenney.nl/assets/mini-characters)（CC0，许可见 `public/models/License.txt`）。
-  每个 `.glb` 自带动画，`src/view/stage.ts` 的 `CLIPS` 把招式对应到动画名（出拳 / 踢腿 / 蹲下 / 点头 / 摇头 / 跳 / 倒下）；
-  模型加载前或加载失败时，显示原来的胶囊小人。敌人按名字的性别从模型池里抽。
-- 场景：`public/models/forest/`（[Mini Forest](https://kenney.nl/assets/mini-forest)：树、岩石、栅栏、旗子、帐篷、草地）、
-  `public/models/arcade/`（[Mini Arcade](https://kenney.nl/assets/mini-arcade)：自动贩卖机、夹娃娃机、街机）、
-  `public/models/pets/`（[Cube Pets](https://kenney.nl/assets/cube-pets)：8 种动物），均为 Kenney 的 CC0 素材，许可文件在各自的文件夹里。
-  每个包有自己的 `Textures/colormap.png`，所以分文件夹存放。
-  `src/view/scenery.ts` 每场战斗用随机种子重新布置：围观者（没上场的角色）站在栅栏外，跟着节拍晃动，「モン」时有人跳，FEVER 时全员跳，
-  有人被打中时欢呼或叹气；小动物在舞台和栅栏之间走走停停，FEVER 时跳舞，结束时根据胜负做出反应。
-- 其余没有外部图片和音频：舞台是 Three.js 几何体，图标用 emoji，音效由 Web Audio 实时合成。
-字体从 Google Fonts 加载（M PLUS Rounded 1c、Noto Sans SC，OFL）。
+- 3D 模型来自 [Kenney](https://kenney.nl/) 的 [Mini Characters](https://kenney.nl/assets/mini-characters)、[Mini Forest](https://kenney.nl/assets/mini-forest)、[Mini Arcade](https://kenney.nl/assets/mini-arcade)、[Cube Pets](https://kenney.nl/assets/cube-pets)，均为 CC0 许可，许可文件放在 `public/models/` 下各自的文件夹里。
+- 字体从 Google Fonts 加载：M PLUS Rounded 1c、Noto Sans SC，均为 SIL OFL 许可。
+- 「CCレモン」是三得利（Suntory）的商标。本项目是粉丝制作的非商业作品，与三得利没有任何关系。
