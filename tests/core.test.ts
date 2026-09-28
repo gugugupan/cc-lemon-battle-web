@@ -212,6 +212,19 @@ describe("run", () => {
     expect([1, 2, 3, 4, 5, 9, 20].map(tellVariety)).toEqual([1, 1, 2, 2, 3, 5, 5]);
   });
 
+  it("clears after 20 wins, then goes on as endless mode", () => {
+    const run = new Run(1);
+    for (let i = 0; i < 19; i++) run.finishBattle(true, 5);
+    expect(run.justCleared).toBe(false);
+    run.finishBattle(true, 5);
+    expect(run.wins).toBe(20);
+    expect(run.justCleared).toBe(true);
+    run.endless = true;
+    expect(run.justCleared).toBe(false);
+    run.finishBattle(true, 5);
+    expect(run.round).toBe(22);
+  });
+
   it("pays out, heals and restocks after a win", () => {
     const run = new Run(1);
     run.finishBattle(true, 3);

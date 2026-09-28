@@ -6,22 +6,14 @@ import type { ActionId, RoundResult } from "../core/rules";
 import { PLAYER_MODEL, Run, tellVariety } from "../core/run";
 import { currentLang, setLang, t } from "../i18n";
 import { Hud, itemName } from "../view/hud";
-import { enemyName, enemyRank, Screens } from "../view/screens";
+import { enemyName, enemyRank, roundLabel, Screens } from "../view/screens";
+import { loadBest, loadClear, recordClear, saveBest } from "./progress";
 import { Stage } from "../view/stage";
 
 const KEY_ACTIONS: Record<string, ActionId> = { ArrowRight: "attack", ArrowLeft: "guard", ArrowDown: "charge", ArrowUp: "special" };
-const BEST_KEY = "cc-lemon:best";
 const END_DELAY_MS = 1300;
-
-
-
-function loadBest(): number {
-  try {
-    return Number(localStorage.getItem(BEST_KEY) ?? 0) || 0;
-  } catch {
-    return 0;
-  }
-}
+/** How long the confetti plays before the clear panel appears. */
+const CELEBRATION_MS = 2200;
 
 /** Glues the pieces together: clock → battle engine → stage + HUD, and the screens between fights. */
 export class App {
@@ -95,6 +87,7 @@ export class App {
     this.stage.setFever(false);
     this.screens.title(
       this.best,
+      loadClear(),
       () => void this.unlockThen(() => this.startRun()),
       () => void this.unlockThen(() => this.screens.calibrate(this.clock, () => this.showTitle())),
       () => this.screens.howto(() => this.showTitle()),
@@ -139,7 +132,7 @@ export class App {
     this.hud.show(true);
     this.hud.hideTell();
     this.hud.setNames(enemyName(spec), enemyRank(spec), spec.color);
-    this.hud.setRound(run.round, battle.bpm);
+    this.hud.setRound(roundLabel(run), battle.bpm);
     this.hud.setItemsLocked(battle.itemsLocked);
     this.hud.setCosts((a) => battle.costOf(a));
     this.hud.setRelics("player", run.relics);
@@ -339,6 +332,10 @@ export class App {
     this.stage.setFever(false);
     const won = winner === "player";
     const gold = run.finishBattle(won, battle.player.hp);
+    if (won && run.justCleared) {
+      this.celebrate(run);
+      return;
+    }
     if (won) {
       this.clock.synth.win();
       this.clock.synth.coin();
@@ -349,16 +346,34 @@ export class App {
       return;
     }
     this.clock.synth.lose();
-    const wins = run.wins;
-    const newBest = wins > this.best;
-    if (newBest) {
-      this.best = wins;
-      try {
-        localStorage.setItem(BEST_KEY, String(wins));
-      } catch {
-        // best score just isn't kept
-      }
-    }
-    this.screens.gameOver(wins, newBest, () => this.startRun(), () => this.showTitle());
+    const newBest = this.updateBest(run.wins);
+    this.screens.gameOver(run.wins, newBest, () => this.startRun(), () => this.showTitle());
+  }
+
+  private updateBest(wins: number): boolean {
+    if (wins <= this.best) return false;
+    this.best = wins;
+    saveBest(wins);
+    return true;
+  }
+
+  /** The goal fight is won: confetti, then the choice to stop here or keep going endlessly. */
+  private celebrate(run: Run): void {
+    const record = recordClear();
+    this.updateBest(run.wins);
+    this.hud.show(false);
+    this.stage.celebrate();
+    this.clock.synth.win();
+    this.clock.synth.fever();
+    window.setTimeout(() => {
+      this.screens.cleared(
+        record,
+        () => this.showTitle(),
+        () => {
+          run.endless = true;
+          this.screens.shop(run, () => this.showIntro(), (ok) => (ok ? this.clock.synth.coin() : this.clock.synth.ui()));
+        },
+      );
+    }, CELEBRATION_MS);
   }
 }

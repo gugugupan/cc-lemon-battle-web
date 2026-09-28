@@ -6,6 +6,8 @@ import { Rng } from "./rng";
 export const START_HP = 5;
 export const START_GOLD = 20;
 export const SLOTS = 4;
+/** Winning this many fights clears the game; the run can then go on as endless mode. */
+export const GOAL_ROUNDS = 20;
 export const VICTORY_HEAL = 1;
 export const ENEMY_NAME_COUNT = 12;
 export const MAX_ENEMY_RELICS = 6;
@@ -85,6 +87,8 @@ export class Run {
   slots: (Consumable | null)[] = new Array(SLOTS).fill(null);
   stock: StockEntry[] = [];
   enemy: EnemySpec;
+  /** Set once the player chooses to keep going after the goal. */
+  endless = false;
 
   constructor(seed?: number) {
     this.rng = new Rng(seed);
@@ -94,6 +98,11 @@ export class Run {
 
   get wins(): number {
     return this.round - 1;
+  }
+
+  /** True right after the goal fight is won, until the player picks endless mode. */
+  get justCleared(): boolean {
+    return !this.endless && this.wins === GOAL_ROUNDS;
   }
 
   loadout(): Loadout {

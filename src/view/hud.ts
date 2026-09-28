@@ -137,8 +137,8 @@ export class Hud {
     this.enemy.root.style.setProperty("--accent", enemyColor);
   }
 
-  setRound(round: number, bpm: number): void {
-    this.round.textContent = t("round", round);
+  setRound(label: string, bpm: number): void {
+    this.round.textContent = label;
     this.bpm.textContent = `♩ ${bpm}`;
   }
 

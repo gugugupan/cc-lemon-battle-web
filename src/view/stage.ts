@@ -272,6 +272,57 @@ class FighterModel {
   }
 }
 
+const CONFETTI_COUNT = 360;
+const CONFETTI_COLORS = ["#ffd43b", "#ff6b6b", "#4dabf7", "#69db7c", "#cc5de8", "#ff922b", "#ffffff"];
+
+/** Paper confetti raining over the arena for a few seconds. */
+class Confetti {
+  readonly mesh: THREE.InstancedMesh;
+  private pos: THREE.Vector3[] = [];
+  private vel: THREE.Vector3[] = [];
+  private spin: THREE.Vector3[] = [];
+  private rot: THREE.Euler[] = [];
+  private dummy = new THREE.Object3D();
+  life: number;
+
+  constructor(seconds: number) {
+    this.life = seconds;
+    this.mesh = new THREE.InstancedMesh(
+      new THREE.PlaneGeometry(0.16, 0.24),
+      new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, transparent: true, fog: false }),
+      CONFETTI_COUNT,
+    );
+    const color = new THREE.Color();
+    for (let i = 0; i < CONFETTI_COUNT; i++) {
+      this.pos.push(new THREE.Vector3((Math.random() - 0.5) * 14, 6 + Math.random() * 10, (Math.random() - 0.5) * 8));
+      this.vel.push(new THREE.Vector3((Math.random() - 0.5) * 0.6, -1.4 - Math.random() * 1.2, (Math.random() - 0.5) * 0.6));
+      this.spin.push(new THREE.Vector3(Math.random() * 6, Math.random() * 6, Math.random() * 6));
+      this.rot.push(new THREE.Euler(Math.random() * 6, Math.random() * 6, Math.random() * 6));
+      this.mesh.setColorAt(i, color.set(CONFETTI_COLORS[i % CONFETTI_COLORS.length]));
+    }
+    this.mesh.renderOrder = 30;
+  }
+
+  tick(dt: number): void {
+    this.life -= dt;
+    const t = performance.now() / 1000;
+    for (let i = 0; i < CONFETTI_COUNT; i++) {
+      const p = this.pos[i];
+      p.addScaledVector(this.vel[i], dt);
+      p.x += Math.sin(t * 2 + i) * dt * 0.4;
+      if (p.y < -0.2) p.y += 12;
+      const r = this.rot[i];
+      r.set(r.x + this.spin[i].x * dt, r.y + this.spin[i].y * dt, r.z + this.spin[i].z * dt);
+      this.dummy.position.copy(p);
+      this.dummy.rotation.copy(r);
+      this.dummy.updateMatrix();
+      this.mesh.setMatrixAt(i, this.dummy.matrix);
+    }
+    this.mesh.instanceMatrix.needsUpdate = true;
+    (this.mesh.material as THREE.MeshBasicMaterial).opacity = Math.min(1, this.life);
+  }
+}
+
 interface Burst {
   points: THREE.Points;
   velocities: Float32Array;
@@ -310,6 +361,7 @@ export class Stage {
   private cameraBase = new THREE.Vector3(0, 2.9, 10);
   private lookAt = new THREE.Vector3(0, 1.5, 0);
   private cards: THREE.Mesh[] = [];
+  private confetti: Confetti | null = null;
   private cardCache = new Map<string, THREE.Texture>();
   /** Seconds the gesture cards stay up; shorter when the next bar follows without a rest. */
   cardLife = 1.3;
@@ -463,6 +515,18 @@ export class Stage {
     );
     this.scene.add(points);
     return { points, speeds };
+  }
+
+  /** Confetti, a gold sky and the crowd going wild — for clearing the game. */
+  celebrate(seconds = 6): void {
+    if (this.confetti) this.scene.remove(this.confetti.mesh);
+    this.confetti = new Confetti(seconds);
+    this.scene.add(this.confetti.mesh);
+    this.setFever(true);
+    this.player.play("win");
+    this.enemy.play("lose");
+    this.scenery.react("win");
+    this.punch = 1;
   }
 
   setEnemyColor(color: string): void {
@@ -665,6 +729,14 @@ export class Stage {
     this.player.tick(dt);
     this.enemy.tick(dt);
     this.scenery.tick(dt);
+    if (this.confetti) {
+      this.confetti.tick(dt);
+      if (this.confetti.life <= 0) {
+        this.scene.remove(this.confetti.mesh);
+        this.confetti.mesh.geometry.dispose();
+        this.confetti = null;
+      }
+    }
     this.onFrame(dt);
 
     this.feverK += ((this.feverOn ? 1 : 0) - this.feverK) * Math.min(1, dt * 3);

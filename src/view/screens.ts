@@ -1,8 +1,9 @@
 import type { BeatClock } from "../audio/clock";
 import { type EnemySpec, enemyStats, fightBpm } from "../core/battle";
 import type { Item } from "../core/items";
-import { REST_HEAL, REST_PRICE, type Run, sellPrice } from "../core/run";
-import { t } from "../i18n";
+import { GOAL_ROUNDS, REST_HEAL, REST_PRICE, type Run, sellPrice } from "../core/run";
+import type { ClearRecord } from "../game/progress";
+import { currentLang, t } from "../i18n";
 import { itemDesc, itemName, pips, seriesLabel } from "./hud";
 import { attachTooltip, hideTooltip } from "./tooltip";
 
@@ -20,6 +21,14 @@ function escape(s: string): string {
 
 function itemRow(item: Item): string {
   return `<div class="item-row"><span class="item-icon">${item.icon}</span><div><div class="item-name">${escape(itemName(item.id))}</div><div class="item-desc">${escape(itemDesc(item.id))}</div></div></div>`;
+}
+
+export function roundLabel(run: Run): string {
+  return run.endless || run.round > GOAL_ROUNDS ? t("roundEndless", run.round) : t("roundGoal", run.round, GOAL_ROUNDS);
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(currentLang() === "zh" ? "zh-CN" : "ja-JP", { year: "numeric", month: "short", day: "numeric" });
 }
 
 export function enemyName(spec: EnemySpec): string {
@@ -87,9 +96,13 @@ export class Screens {
     this.root.append(panel);
   }
 
-  title(best: number, onStart: () => void, onCalibrate: () => void, onHowto: () => void, onLang: () => void): void {
-    const panel = h(`<div class="panel title-panel">
-      <div class="logo"><span class="logo-lemon">🍋</span><div><h1>${t("title")}</h1><p class="subtitle">${t("subtitle")}</p></div></div>
+  title(best: number, clear: ClearRecord | null, onStart: () => void, onCalibrate: () => void, onHowto: () => void, onLang: () => void): void {
+    const badge = clear
+      ? `<div class="cleared-badge"><span class="cleared-main">${t("clearedBadge")}</span><span class="cleared-date">${t("clearedOn", formatDate(clear.first))}${clear.count > 1 ? t("clearedTimes", clear.count) : ""}</span></div>`
+      : "";
+    const panel = h(`<div class="panel title-panel ${clear ? "cleared" : ""}">
+      <div class="logo"><span class="logo-lemon">${clear ? '<span class="crown">👑</span>' : ""}🍋</span><div><h1>${t("title")}</h1><p class="subtitle">${t("subtitle")}</p></div></div>
+      ${badge}
       ${best > 0 ? `<div class="best">${t("best", best)}</div>` : ""}
     </div>`);
     this.show(panel, [
@@ -164,7 +177,7 @@ export class Screens {
     const stats = enemyStats(e);
     const relics = e.relics.length ? e.relics.map(itemRow).join("") : `<p class="muted">${t("none")}</p>`;
     const panel = h(`<div class="panel intro-panel" style="--accent:${e.color}">
-      <div class="intro-head"><span class="vs">${t("introVs")}</span><span class="round-chip">${t("round", run.round)}</span></div>
+      <div class="intro-head"><span class="vs">${t("introVs")}</span><span class="round-chip">${roundLabel(run)}</span></div>
       <div class="intro-body">
         <div class="avatar" style="background:${e.color}"><span>${escape(enemyName(e).slice(-1))}</span></div>
         <div class="intro-info">
@@ -182,6 +195,21 @@ export class Screens {
       <p class="muted center">${t("tapToStart")}</p>
     </div>`);
     this.show(panel, [{ label: t("fight"), onClick: onFight, primary: true }], "dim");
+  }
+
+  cleared(record: ClearRecord, onEnd: () => void, onEndless: () => void): void {
+    const letters = [...t("clearTitle")].map((c, i) => `<span style="animation-delay:${i * 0.08}s">${escape(c)}</span>`).join("");
+    const panel = h(`<div class="panel banner-panel clear-panel">
+      <div class="trophy">🏆</div>
+      <h1 class="clear-title">${letters}</h1>
+      <p>${t("clearBody", GOAL_ROUNDS)}</p>
+      <p class="muted">${t("clearCount", record.count)}</p>
+      <p class="muted small">${t("clearEndlessHint")}</p>
+    </div>`);
+    this.show(panel, [
+      { label: t("clearEndless"), onClick: onEndless, primary: true },
+      { label: t("clearEnd"), onClick: onEnd },
+    ], "dim clear");
   }
 
   victory(gold: number, onNext: () => void): void {
