@@ -294,6 +294,7 @@ export class App {
     this.stage.reveal(r.player.action, r.enemy.action, labels, { player: mark(r.player), enemy: mark(r.enemy) }, () => {
       const battle = this.battle;
       if (!battle) return;
+      this.stage.scenery.jumpAll();
       const meet = this.stage.project(this.stage.cardMeet());
       if (r.clash) {
         this.stage.knockCards();
@@ -317,7 +318,7 @@ export class App {
           synth.hit();
           const at = this.stage.screenOf(side, 2.6);
           this.hud.popup(t("fx_damage", s.damageTaken), at.x, at.y, "damage big");
-          this.stage.scenery.react(side === "enemy" ? "yay" : "aww");
+          this.stage.tweens.delay(0.4, () => this.stage.scenery.react(side === "enemy" ? "yay" : "aww"));
           const other = side === "player" ? r.enemy : r.player;
           if (!r.clash && other.action === "special" && s.action === "guard") this.hud.popup(t("guardBreak"), meet.x, meet.y - 70, "outcome");
         }

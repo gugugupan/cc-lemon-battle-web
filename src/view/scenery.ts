@@ -29,7 +29,9 @@ function faceCenter(obj: THREE.Object3D): void {
 interface Spectator {
   root: THREE.Object3D;
   anim: Animator;
+  /** Small beat bob, and a bigger together-jump; both decay 1 → 0. */
   hop: number;
+  jump: number;
   baseY: number;
 }
 
@@ -42,6 +44,7 @@ interface Pet {
   target: THREE.Vector3 | null;
   pause: number;
   hop: number;
+  jump: number;
   hopsOnBeat: boolean;
 }
 
@@ -135,7 +138,7 @@ export class Scenery {
       const anim = new Animator(root.children[0], gltf);
       anim.mixer.update(rng.next() * 2);
       this.group.add(root);
-      this.spectators.push({ root, anim, hop: 0, baseY: root.position.y });
+      this.spectators.push({ root, anim, hop: 0, jump: 0, baseY: root.position.y });
     });
 
     petKinds.forEach((kind, i) => {
@@ -147,7 +150,7 @@ export class Scenery {
       root.rotation.y = rng.next() * Math.PI * 2;
       const anim = new Animator(root.children[0], gltf);
       this.group.add(root);
-      this.pets.push({ root, anim, arc, radius, target: null, pause: rng.next() * 3, hop: 0, hopsOnBeat: kind === "chick" || kind === "bunny" });
+      this.pets.push({ root, anim, arc, radius, target: null, pause: rng.next() * 3, hop: 0, jump: 0, hopsOnBeat: kind === "chick" || kind === "bunny" });
     });
   }
 
@@ -158,13 +161,24 @@ export class Scenery {
     this.group.clear();
   }
 
-  /** Crowd bobs on every beat; someone jumps on 「モン」, everyone does in FEVER. */
+  /** Crowd bobs on every beat; in FEVER everyone also jumps on 「モン」. */
   beat(beatInBar: number, rest: boolean): void {
-    for (const s of this.spectators) s.hop = rest ? 0.4 : 0.7;
-    for (const p of this.pets) if (p.hopsOnBeat && !p.target) p.hop = 1;
-    if (beatInBar !== 3 || rest) return;
-    const jumpers = this.fever ? this.spectators : this.spectators.filter(() => this.rng.chance(0.3));
-    for (const s of jumpers) s.anim.once("jump", 1.3);
+    for (const s of this.spectators) s.hop = Math.max(s.hop, rest ? 0.4 : 0.7);
+    for (const p of this.pets) if (p.hopsOnBeat) p.hop = Math.max(p.hop, 0.6);
+    if (beatInBar === 3 && !rest && this.fever) this.jumpAll();
+  }
+
+  /** Everyone jumps together — the moment a round is settled. */
+  jumpAll(): void {
+    for (const s of this.spectators) {
+      s.anim.once("jump", 1.3);
+      s.hop = 1;
+      s.jump = 1;
+    }
+    for (const p of this.pets) {
+      p.hop = 1;
+      p.jump = 1;
+    }
   }
 
   setFever(on: boolean): void {
@@ -211,15 +225,17 @@ export class Scenery {
     for (const s of this.spectators) {
       s.anim.update(dt);
       s.hop = Math.max(0, s.hop - dt * 5);
-      s.root.position.y = s.baseY + Math.sin(s.hop * Math.PI) * 0.08;
+      s.jump = Math.max(0, s.jump - dt * 2.4);
+      s.root.position.y = s.baseY + Math.sin(s.hop * Math.PI) * 0.08 + Math.sin(s.jump * Math.PI) * 0.45;
     }
     for (const p of this.pets) {
       p.anim.update(dt);
       p.hop = Math.max(0, p.hop - dt * 4);
+      p.jump = Math.max(0, p.jump - dt * 2.6);
+      p.root.position.y = -0.3 + Math.sin(p.hop * Math.PI) * 0.18 + Math.sin(p.jump * Math.PI) * 0.35;
       if (p.pause === 999) continue;
       if (!p.target) {
         p.pause -= dt;
-        p.root.position.y = -0.3 + Math.sin(p.hop * Math.PI) * 0.25;
         if (p.pause > 0) continue;
         const [a0, a1] = p.arc;
         p.target = around(a0 + this.rng.next() * (a1 - a0), p.radius[0] + this.rng.next() * (p.radius[1] - p.radius[0]));
