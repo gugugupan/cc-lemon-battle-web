@@ -200,3 +200,79 @@ describe("run", () => {
     expect(run.buyService("maxHp")).toBe("no_gold");
   });
 });
+
+describe("rule-changing relics", () => {
+  const relic = (id: string) => itemById(id) as Relic;
+
+  function withEnemyRelics(ids: string[], playerRelics: Relic[] = [], slots: (Consumable | null)[] = []) {
+    const spec = enemyFor(1, new Rng(1));
+    spec.relics = ids.map(relic);
+    spec.tellChance = 0;
+    const events: BattleEvent[] = [];
+    const battle = new Battle(spec, { hp: 5, maxHp: 5, relics: playerRelics, slots }, new Rng(2), (e) => events.push(e));
+    battle.start();
+    return { battle, events, spb: 60 / battle.bpm };
+  }
+
+  it("xray shows a tell every call bar", () => {
+    const { battle, events } = withEnemyRelics([], [relic("xray")]);
+    for (let b = 0; b < 40; b++) {
+      battle.onBeat(b);
+      battle.onOffbeat(b);
+    }
+    expect(events.filter((e) => e.type === "tell").length).toBe(9);
+  });
+
+  it("double time doubles the tempo and adds 1 to landed hits", () => {
+    const { battle } = withEnemyRelics([], [relic("double_time")]);
+    expect(battle.bpm).toBe(battle.spec.bpm * 2);
+    const e = { hp: 5, maxHp: 5, energy: 0, maxEnergy: 3 };
+    const r = resolve({ hp: 5, maxHp: 5, energy: 1, maxEnergy: 3 }, "attack", e, "charge", { playerDamageBonus: 1 });
+    expect(r.player.damageDealt).toBe(2);
+    const blocked = resolve({ hp: 5, maxHp: 5, energy: 1, maxEnergy: 3 }, "attack", { ...e }, "guard", { playerDamageBonus: 1 });
+    expect(blocked.player.damageDealt).toBe(0);
+  });
+
+  it("hot blood costs 1 HP when FEVER breaks", () => {
+    const { battle, spb } = withEnemyRelics([], [relic("hot_blood")]);
+    let beat = 0;
+    for (let acted = 0; acted < 10; beat++) {
+      battle.onBeat(beat);
+      const bar = Math.floor(beat / 4);
+      if (beat % 4 === 3 && !battle.isRestBar(bar)) {
+        battle.pressAction("guard", beat, spb);
+        battle.player.hp = 5;
+        battle.enemy.hp = 5;
+        acted++;
+      }
+      battle.onOffbeat(beat);
+    }
+    expect(battle.fever).toBe(true);
+    for (let i = 0; i < 12 && battle.fever; i++, beat++) {
+      battle.onBeat(beat);
+      battle.onOffbeat(beat);
+    }
+    expect(battle.fever).toBe(false);
+    expect(battle.player.hp).toBe(4);
+  });
+
+  it("iron wall guards stop the special", () => {
+    const r = resolve({ hp: 5, maxHp: 5, energy: 3, maxEnergy: 3 }, "special", { hp: 5, maxHp: 5, energy: 0, maxEnergy: 3 }, "guard", { enemyGuardBonus: 1 });
+    expect(r.player.damageDealt).toBe(0);
+    expect(r.enemy.guarded).toBe(true);
+  });
+
+  it("silence locks consumables and allegro speeds the fight up", () => {
+    const { battle, spb } = withEnemyRelics(["silence", "allegro"], [], [itemById("bandage") as Consumable]);
+    expect(battle.bpm).toBe(battle.spec.bpm + 20);
+    for (let b = 0; b < 5; b++) battle.onBeat(b);
+    expect(battle.useItem(0, 5, spb)).toBeNull();
+    expect(battle.loadout.slots[0]).not.toBeNull();
+  });
+
+  it("big bottle starts with 2 energy", () => {
+    const { battle } = withEnemyRelics([], [relic("big_bottle")]);
+    expect(battle.player.energy).toBe(2);
+    expect(battle.player.maxEnergy).toBe(4);
+  });
+});

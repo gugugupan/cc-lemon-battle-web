@@ -67,6 +67,7 @@ export class Hud {
   private round = el("div", "round-badge");
   private bpm = el("div", "bpm");
   private slots = el("div", "slots");
+  private slotsLabel = el("div", "hud-label", t("items"));
   private combo = el("div", "combo");
   private comboCount = el("div", "combo-count");
   private comboLabel = el("div", "combo-label");
@@ -84,7 +85,7 @@ export class Hud {
 
     const bottom = el("div", "hud-bottom");
     const slotWrap = el("div", "slot-wrap");
-    slotWrap.append(el("div", "hud-label", t("items")), this.slots);
+    slotWrap.append(this.slotsLabel, this.slots);
     const padWrap = el("div", "pad");
     for (const action of ["special", "guard", "attack", "charge"] as ActionId[]) {
       const button = el("button", `pad-btn pad-${action}`);
@@ -185,6 +186,19 @@ export class Hud {
       this.slots.append(button);
       this.slotButtons.push(button);
     });
+  }
+
+  setItemsLocked(locked: boolean): void {
+    this.slots.classList.toggle("locked", locked);
+    this.slotsLabel.textContent = locked ? t("itemsLocked") : t("items");
+  }
+
+  nopeSlot(slot: number): void {
+    const button = this.slotButtons[slot];
+    if (!button) return;
+    button.classList.remove("nope");
+    void button.offsetWidth;
+    button.classList.add("nope");
   }
 
   setCombo(combo: number, threshold: number, fever: boolean): void {

@@ -1,5 +1,5 @@
 import type { BeatClock } from "../audio/clock";
-import type { EnemySpec } from "../core/battle";
+import { type EnemySpec, fightBpm } from "../core/battle";
 import type { Item } from "../core/items";
 import { type Run, SERVICES, type ServiceId } from "../core/run";
 import { t } from "../i18n";
@@ -174,7 +174,7 @@ export class Screens {
           <dl class="stats">
             <dt>${t("hp")}</dt><dd class="hearts">${pips(e.maxHp, e.maxHp, "heart", "heart empty")}</dd>
             <dt>${t("energy")}</dt><dd class="energy">${pips(e.startEnergy, e.maxEnergy, "lemon", "lemon empty")}</dd>
-            <dt>${t("tempo")}</dt><dd>♩ ${e.bpm}</dd>
+            <dt>${t("tempo")}</dt><dd>♩ ${fightBpm(e, run.relics)}</dd>
             <dt>${t("tellRate")}</dt><dd>${Math.round(e.tellChance * 100)}%</dd>
           </dl>
         </div>
@@ -197,7 +197,7 @@ export class Screens {
       const stock = run.stock
         .map((s, i) => {
           const tag = s.item.kind === "relic" ? `<span class="tag">${t("relicTag")}</span>` : "";
-          return `<button class="shop-card ${s.sold ? "sold" : ""}" data-buy="${i}" ${s.sold ? "disabled" : ""}>
+          return `<button class="shop-card ${s.item.kind} ${s.sold ? "sold" : ""}" data-buy="${i}" ${s.sold ? "disabled" : ""}>
             <span class="item-icon big">${s.item.icon}</span>
             <span class="item-name">${escape(itemName(s.item.id))} ${tag}</span>
             <span class="item-desc">${escape(itemDesc(s.item.id))}</span>

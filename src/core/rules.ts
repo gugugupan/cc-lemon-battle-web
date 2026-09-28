@@ -65,11 +65,25 @@ export interface RoundResult {
 
 export interface RoundRules {
   playerDamageMult: number;
+  /** Added to each side's damage when its hit lands. */
+  playerDamageBonus: number;
+  enemyDamageBonus: number;
+  /** Extra defense a side's guard gives. */
+  playerGuardBonus: number;
+  enemyGuardBonus: number;
   playerCanGuard: boolean;
   enemyNullified: boolean;
 }
 
-export const DEFAULT_RULES: RoundRules = { playerDamageMult: 1, playerCanGuard: true, enemyNullified: false };
+export const DEFAULT_RULES: RoundRules = {
+  playerDamageMult: 1,
+  playerDamageBonus: 0,
+  enemyDamageBonus: 0,
+  playerGuardBonus: 0,
+  enemyGuardBonus: 0,
+  playerCanGuard: true,
+  enemyNullified: false,
+};
 
 function side(action: ActionId): SideOutcome {
   return { action, whiffed: false, nullified: false, damageDealt: 0, damageTaken: 0, blocked: false, guarded: false, grade: null };
@@ -79,7 +93,8 @@ function side(action: ActionId): SideOutcome {
  * Both sides pay first; an action that can't be paid (or is locked / nullified) whiffs as 0/0.
  * Two attacks clash and only the difference lands; otherwise each side hits for attack − defense.
  */
-export function resolve(p: Fighter, pa: ActionId, e: Fighter, ea: ActionId, rules: RoundRules = DEFAULT_RULES): RoundResult {
+export function resolve(p: Fighter, pa: ActionId, e: Fighter, ea: ActionId, partial: Partial<RoundRules> = {}): RoundResult {
+  const rules = { ...DEFAULT_RULES, ...partial };
   const ps = side(pa);
   const es = side(ea);
   ps.whiffed = !canAfford(p, pa) || (pa === "guard" && !rules.playerCanGuard);
@@ -91,9 +106,9 @@ export function resolve(p: Fighter, pa: ActionId, e: Fighter, ea: ActionId, rule
   }
 
   const pAtk = ps.whiffed ? 0 : ACTIONS[pa].attack;
-  const pDef = ps.whiffed ? 0 : ACTIONS[pa].defense;
+  const pDef = ps.whiffed ? 0 : ACTIONS[pa].defense + (pa === "guard" ? rules.playerGuardBonus : 0);
   const eAtk = es.whiffed ? 0 : ACTIONS[ea].attack;
-  const eDef = es.whiffed ? 0 : ACTIONS[ea].defense;
+  const eDef = es.whiffed ? 0 : ACTIONS[ea].defense + (ea === "guard" ? rules.enemyGuardBonus : 0);
   const clash = pAtk > 0 && eAtk > 0;
 
   let toEnemy = 0;
@@ -113,7 +128,8 @@ export function resolve(p: Fighter, pa: ActionId, e: Fighter, ea: ActionId, rule
       ps.guarded = true;
     }
   }
-  toEnemy *= rules.playerDamageMult;
+  if (toEnemy > 0) toEnemy = toEnemy * rules.playerDamageMult + rules.playerDamageBonus;
+  if (toPlayer > 0) toPlayer += rules.enemyDamageBonus;
 
   e.hp = Math.max(0, e.hp - toEnemy);
   p.hp = Math.max(0, p.hp - toPlayer);

@@ -19,6 +19,8 @@ export const BEATS_PER_BAR = 4;
 /** The 「モン」 beat (0-based): the only beat an action is judged on. */
 export const ACTION_BEAT = 3;
 export const FEVER_THRESHOLD = 10;
+export const MIN_BPM = 60;
+export const MAX_BPM = 260;
 
 export interface EnemySpec {
   nameIndex: number;
@@ -66,6 +68,14 @@ export type BattleEvent =
   | { type: "wait" }
   | { type: "finished"; winner: Exclude<Winner, null> };
 
+/** Tempo of a fight against `spec` after both sides' relics. */
+export function fightBpm(spec: EnemySpec, playerRelics: readonly Relic[]): number {
+  const mine = combineMods(playerRelics);
+  const theirs = combineMods(spec.relics);
+  const bpm = (spec.bpm + mine.bpmAdd + theirs.bpmAdd) * mine.bpmMult * theirs.bpmMult;
+  return Math.round(Math.min(MAX_BPM, Math.max(MIN_BPM, bpm)));
+}
+
 /**
  * One fight. Call `onBeat`/`onOffbeat` with absolute beat numbers as they are heard, and
  * `pressAction`/`useItem` with the input's beat position. Bar 0 is a count-in rest bar; see
@@ -75,7 +85,10 @@ export class Battle {
   readonly player: Fighter;
   readonly enemy: Fighter;
   readonly mods: Modifiers;
+  readonly enemyMods: Modifiers;
   readonly feverThreshold: number;
+  /** Tempo for this fight after both sides' relics. */
+  readonly bpm: number;
   combo = 0;
   fever = false;
   perfectStreak = 0;
@@ -101,11 +114,18 @@ export class Battle {
   ) {
     this.mods = combineMods(loadout.relics);
     const enemyMods = combineMods(spec.relics);
+    this.enemyMods = enemyMods;
     this.player = { hp: loadout.hp, maxHp: loadout.maxHp, energy: 0, maxEnergy: 3 + this.mods.maxEnergyAdd };
     this.enemy = { hp: spec.maxHp, maxHp: spec.maxHp, energy: spec.startEnergy, maxEnergy: spec.maxEnergy + enemyMods.maxEnergyAdd };
+    this.bpm = fightBpm(spec, loadout.relics);
     this.feverThreshold = Math.max(1, FEVER_THRESHOLD + this.mods.feverThresholdAdd);
     this.playerRelics = new RelicRunner(loadout.relics);
     this.enemyRelics = new RelicRunner(spec.relics);
+  }
+
+  /** An enemy relic can forbid consumables for the whole fight. */
+  get itemsLocked(): boolean {
+    return this.enemyMods.locksItems;
   }
 
   get finished(): boolean {
@@ -134,9 +154,10 @@ export class Battle {
     }
     if (b === 0) this.enemyChoice = this.decideEnemy();
     if (b === 1 && this.enemyChoice) {
-      const chance = this.spec.tellChance * this.mods.tellChanceMult;
-      const accuracy = Math.min(1, this.spec.tellAccuracy + this.mods.tellAccuracyAdd);
-      const tell = rollTell(this.enemy, this.enemyChoice, chance, accuracy, this.waitsInRow, this.rng);
+      const always = this.mods.alwaysTell || this.enemyMods.alwaysTell;
+      const chance = always ? 1 : this.spec.tellChance * this.mods.tellChanceMult * this.enemyMods.tellChanceMult;
+      const accuracy = Math.min(1, Math.max(0, this.spec.tellAccuracy + this.mods.tellAccuracyAdd + this.enemyMods.tellAccuracyAdd));
+      const tell = rollTell(this.enemy, this.enemyChoice, chance, accuracy, always ? 0 : this.waitsInRow, this.rng);
       if (tell) this.emit({ type: "tell", action: tell, forced: false });
     }
   }
@@ -159,8 +180,9 @@ export class Battle {
     this.enemyChoice = null;
     this.waitsInRow++;
     this.perfectStreak = 0;
-    this.setCombo(0);
     this.emit({ type: "wait" });
+    this.setCombo(0);
+    this.checkWinner();
   }
 
   /** Returns the grade, or null when the press didn't count (wrong beat, rest bar, already acted). */
@@ -179,7 +201,10 @@ export class Battle {
     this.setCombo(this.combo + 1);
 
     const result = resolve(this.player, action, this.enemy, enemyAction, {
-      playerDamageMult: 1,
+      playerDamageBonus: this.mods.damageBonus + (this.fever ? this.mods.feverDamageBonus : 0),
+      enemyDamageBonus: this.enemyMods.damageBonus,
+      playerGuardBonus: this.mods.guardDefenseAdd,
+      enemyGuardBonus: this.enemyMods.guardDefenseAdd,
       playerCanGuard: this.mods.canGuard,
       enemyNullified: this.nullifyNext,
     });
@@ -197,7 +222,7 @@ export class Battle {
   /** Items go on beats 1–3 of a call bar (never the action beat), at most one per beat. */
   useItem(slot: number, beatPos: number, secondsPerBeat: number): Grade | null {
     const item = this.loadout.slots[slot];
-    if (this.finished || !item) return null;
+    if (this.finished || !item || this.itemsLocked) return null;
     const nearest = Math.round(beatPos);
     const bar = Math.floor(nearest / BEATS_PER_BAR);
     if (nearest % BEATS_PER_BAR === ACTION_BEAT || this.isRestBar(bar) || this.itemBeats.has(nearest)) return null;
@@ -249,6 +274,7 @@ export class Battle {
     this.emit({ type: "combo", combo, fever, threshold: this.feverThreshold });
     if (started || ended) this.emit({ type: "fever", on: fever });
     if (started) this.fire("player", "fever_start", null);
+    if (ended) this.fire("player", "fever_end", null);
   }
 
   private context(side: "player" | "enemy", round: RoundResult | null): EffectContext {

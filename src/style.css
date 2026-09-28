@@ -968,6 +968,55 @@ i.lemon.empty {
   transform: translateY(-3px);
 }
 
+.shop-card.relic {
+  position: relative;
+  background: linear-gradient(160deg, #f3edff 0%, #e2d6ff 100%);
+  box-shadow: 0 4px 0 #b9a4f2, inset 0 0 0 2px #cdbbff;
+}
+
+.shop-card.relic .item-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffffff, #d7c8ff);
+  box-shadow: 0 2px 0 #b9a4f2;
+}
+
+.shop-card.relic .price {
+  background: #7950f2;
+  color: #fff;
+}
+
+.shop-card.relic::before {
+  content: "✦";
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  color: #9775fa;
+  font-size: 14px;
+}
+
+.shop-card.consumable .item-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  background: #e6fcf5;
+  box-shadow: 0 2px 0 #96f2d7;
+}
+
+.relic-chip {
+  background: linear-gradient(160deg, #f3edff, #e2d6ff);
+}
+
+.slots.locked .slot {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
 .shop-card.sold {
   opacity: 0.45;
   cursor: default;
@@ -976,6 +1025,12 @@ i.lemon.empty {
 .shop-card .item-desc {
   font-size: 12px;
   flex: 1;
+}
+
+.shop-card .tag {
+  position: absolute;
+  top: 7px;
+  left: 9px;
 }
 
 .tag {

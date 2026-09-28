@@ -159,7 +159,8 @@ export class App {
     this.hud.show(true);
     this.hud.hideTell();
     this.hud.setNames(enemyName(spec), enemyRank(spec), spec.color);
-    this.hud.setRound(run.round, spec.bpm);
+    this.hud.setRound(run.round, battle.bpm);
+    this.hud.setItemsLocked(battle.itemsLocked);
     this.hud.setRelics("player", run.relics);
     this.hud.setRelics("enemy", spec.relics);
     this.hud.setSlots(run.slots);
@@ -171,7 +172,7 @@ export class App {
     this.clock.onOffbeat = (b) => battle.onOffbeat(b);
     battle.start();
     this.hud.setStats(battle.player, battle.enemy);
-    this.clock.start(spec.bpm);
+    this.clock.start(battle.bpm);
   }
 
   private act(action: ActionId, event: { timeStamp: number }): void {
@@ -185,7 +186,7 @@ export class App {
     const battle = this.battle;
     if (!battle || battle.finished || !this.clock.running) return;
     const grade = battle.useItem(slot, this.clock.inputBeat(event), this.clock.secondsPerBeat);
-    if (grade === null) this.hud.slotButtons[slot]?.classList.add("nope");
+    if (grade === null) this.hud.nopeSlot(slot);
   }
 
   private onEvent(e: BattleEvent): void {
@@ -264,6 +265,11 @@ export class App {
       } else if (r.type === "energy" && r.amount > 0) {
         this.stage.fighter(target).charge(this.stage.tweens);
         this.hud.popup(r.fill ? t("fx_energy_full") : t("fx_energy", r.amount), at.x, at.y, "energy");
+      } else if (r.type === "hurtSelf" && r.amount > 0) {
+        this.stage.fighter(target).hurt();
+        this.stage.shake(10);
+        this.clock.synth.hit();
+        this.hud.popup(t("fx_hurt_self", r.amount), at.x, at.y, "damage");
       } else if (r.type === "nullify") {
         this.hud.popup(t("fx_nullify"), at.x, at.y, "energy");
       } else if (r.type === "trueTell") {

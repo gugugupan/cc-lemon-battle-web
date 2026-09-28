@@ -21,7 +21,7 @@ export function simulate(
   const battle = new Battle(spec, { ...loadout, slots: [...loadout.slots] }, new Rng(seed + 1), (e) => {
     if (e.type === "tell") tell = e.action;
   }, options);
-  const spb = 60 / spec.bpm;
+  const spb = 60 / battle.bpm;
   battle.start();
   let beat = 0;
   for (; beat < MAX_BARS * BEATS_PER_BAR && !battle.finished; beat++) {
