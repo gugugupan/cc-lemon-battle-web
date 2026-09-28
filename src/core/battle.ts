@@ -14,7 +14,7 @@ import {
   useConsumable,
 } from "./items";
 import type { Rng } from "./rng";
-import { type ActionId, costOf, type CostAdjust, type Fighter, type Grade, judge, mirrored, resolve, type RoundResult, type Winner, winnerOf } from "./rules";
+import { type ActionId, canAfford, costOf, type CostAdjust, type Fighter, type Grade, judge, mirrored, resolve, type RoundResult, type Winner, winnerOf } from "./rules";
 
 export const BEATS_PER_BAR = 4;
 /** The 「モン」 beat (0-based): the only beat an action is judged on. */
@@ -53,6 +53,10 @@ export interface BattleOptions {
    * (the tea break relic turns rest bars on).
    */
   restBars: boolean;
+  /** Tutorial: the enemy always plays this move (if it can pay; otherwise it charges). */
+  enemyScript?: ActionId;
+  /** Tutorial: nobody can drop below 1 HP, so the fight never ends. */
+  noDefeat?: boolean;
 }
 
 export interface Loadout {
@@ -135,7 +139,7 @@ export class Battle {
     options?: Partial<BattleOptions>,
   ) {
     this.mods = combineMods(loadout.relics);
-    this.options = { restBars: options?.restBars ?? this.mods.restBars };
+    this.options = { ...options, restBars: options?.restBars ?? this.mods.restBars };
     this.costs = costAdjust(this.mods);
     const enemyMods = combineMods(spec.relics);
     this.enemyMods = enemyMods;
@@ -304,6 +308,8 @@ export class Battle {
   }
 
   private decideEnemy(): ActionId {
+    const script = this.options.enemyScript;
+    if (script) return canAfford(this.enemy, script) ? script : "charge";
     return decide(this.enemy, this.player, this.playerHistory, this.spec.ai, this.rng, { lastHit: this.enemyLastHit, lastGuarded: this.enemyLastGuarded });
   }
 
@@ -368,6 +374,11 @@ export class Battle {
 
   private checkWinner(): void {
     if (this.finished) return;
+    if (this.options.noDefeat) {
+      this.player.hp = Math.max(1, this.player.hp);
+      this.enemy.hp = Math.max(1, this.enemy.hp);
+      return;
+    }
     const w = winnerOf(this.player, this.enemy);
     if (w === null) return;
     this.winner = w;

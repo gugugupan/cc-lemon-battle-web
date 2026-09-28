@@ -101,7 +101,16 @@ export class Screens {
     this.root.append(panel);
   }
 
-  title(best: number, clear: ClearRecord | null, onStart: () => void, onCalibrate: () => void, onHowto: () => void, onLang: () => void): void {
+  title(
+    best: number,
+    clear: ClearRecord | null,
+    tutorialDone: boolean,
+    onTutorial: () => void,
+    onStart: () => void,
+    onCalibrate: () => void,
+    onHowto: () => void,
+    onLang: () => void,
+  ): void {
     const badge = clear
       ? `<div class="cleared-badge"><span class="cleared-main">${t("clearedBadge")}</span><span class="cleared-date">${t("clearedOn", formatDate(clear.first))}${clear.count > 1 ? t("clearedTimes", clear.count) : ""}</span></div>`
       : "";
@@ -109,9 +118,11 @@ export class Screens {
       <div class="logo"><span class="logo-lemon">${clear ? '<span class="crown">👑</span>' : ""}🍋</span><div><h1>${t("title")}</h1><p class="subtitle">${t("subtitle")}</p></div></div>
       ${badge}
       ${best > 0 ? `<div class="best">${t("best", best)}</div>` : ""}
+      ${tutorialDone ? "" : `<p class="first-time">${t("tutorialFirst")}</p>`}
     </div>`);
     this.show(panel, [
       { label: t("start"), onClick: onStart, primary: true },
+      { label: `${t("tutorial")}${tutorialDone ? " ✓" : ""}`, onClick: onTutorial },
       { label: t("howto"), onClick: onHowto },
       { label: t("calibrate"), onClick: onCalibrate },
       { label: t("language"), onClick: onLang, ghost: true },

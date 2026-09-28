@@ -1,18 +1,32 @@
 import { BeatClock } from "../audio/clock";
 import { Battle, type BattleEvent } from "../core/battle";
-import type { EffectReport } from "../core/items";
 import { Rng } from "../core/rng";
 import type { ActionId, RoundResult } from "../core/rules";
 import { type Character, CHARACTERS, characterById, isUnlocked } from "../core/characters";
-import { Run, tellVariety } from "../core/run";
+import { enemyFor, Run, tellVariety } from "../core/run";
+import { STRONG_HINT_AFTER, TUTORIAL_BPM, TUTORIAL_STEPS, type TutorialInput, type TutorialStep, TutorialTracker } from "../core/tutorial";
+import { type Consumable, type EffectReport, itemById } from "../core/items";
 import { currentLang, setLang, t } from "../i18n";
 import { Hud, itemName } from "../view/hud";
 import { enemyName, personalityName, roundLabel, Screens } from "../view/screens";
-import { loadBest, loadBests, loadBought, loadClear, loadLastCharacter, recordBought, recordClear, saveBestFor, saveLastCharacter } from "./progress";
+import {
+  loadBest,
+  loadBests,
+  loadBought,
+  loadClear,
+  loadLastCharacter,
+  loadTutorialDone,
+  recordBought,
+  recordClear,
+  saveBestFor,
+  saveLastCharacter,
+  saveTutorialDone,
+} from "./progress";
 import { Stage } from "../view/stage";
 
 const KEY_ACTIONS: Record<string, ActionId> = { ArrowRight: "attack", ArrowLeft: "guard", ArrowDown: "charge", ArrowUp: "special" };
 const END_DELAY_MS = 1300;
+const TUTORIAL_DUMMY = "character-male-b";
 /** How long the confetti plays before the clear panel appears. */
 const CELEBRATION_MS = 2200;
 
@@ -28,6 +42,7 @@ export class App {
   private character: Character = characterById(this.lastCharacter);
   /** Characters unlocked so far, to announce new ones. */
   private known = new Set(this.unlockedIds());
+  private tut: { index: number; line: number; tracker: TutorialTracker | null; fails: number; practicing: boolean; exitArmed: number } | null = null;
   private idle = 0;
 
   constructor(root: HTMLElement) {
@@ -75,6 +90,13 @@ export class App {
   private key(e: KeyboardEvent): void {
     if (e.repeat) return;
     if (this.screens.handleKey(e)) return;
+    if (this.tut) {
+      if (e.key === "Escape") return this.exitTutorial();
+      if (!this.tut.practicing && (e.key === "Enter" || e.key === " ")) {
+        e.preventDefault();
+        return this.advanceTutorial();
+      }
+    }
     const action = KEY_ACTIONS[e.key];
     if (action) {
       e.preventDefault();
@@ -95,6 +117,8 @@ export class App {
     this.screens.title(
       loadBest(),
       loadClear(),
+      loadTutorialDone(),
+      () => void this.unlockThen(() => this.startTutorial()),
       () => void this.unlockThen(() => this.showSelect()),
       () => void this.unlockThen(() => this.screens.calibrate(this.clock, () => this.showTitle())),
       () => this.screens.howto(() => this.showTitle()),
@@ -179,33 +203,187 @@ export class App {
   private beginBattle(): void {
     const run = this.run!;
     const spec = run.enemy;
-    this.screens.hide();
     const battle = new Battle(spec, run.loadout(), new Rng(), (e) => this.onEvent(e));
+    this.mountBattle(battle, enemyName(spec), `${personalityName(spec)}${spec.elite ? ` ${t("eliteTag")}` : ""}`, roundLabel(run));
+  }
+
+  /** Shows a battle on the HUD and starts its beat. */
+  private mountBattle(battle: Battle, name: string, tag: string, roundText: string, bpm = battle.bpm): void {
+    const spec = battle.spec;
+    this.screens.hide();
     this.stage.cardLife = battle.options.restBars ? 1.3 : 0.85;
     this.battle = battle;
     this.hud.show(true);
     this.hud.hideTell();
-    this.hud.setNames(enemyName(spec), `${personalityName(spec)}${spec.elite ? ` ${t("eliteTag")}` : ""}`, spec.color);
-    this.hud.setRound(roundLabel(run), battle.bpm);
+    this.hud.setNames(name, tag, spec.color);
+    this.hud.setRound(roundText, bpm);
     this.hud.setItemsLocked(battle.itemsLocked);
     this.hud.setCosts((a) => battle.costOf(a));
-    this.hud.setRelics("player", run.relics);
+    this.hud.setRelics("player", battle.loadout.relics);
     this.hud.setRelics("enemy", spec.relics);
-    this.hud.setSlots(run.slots);
+    this.hud.setSlots(battle.loadout.slots);
     this.hud.setCombo(0, battle.feverThreshold, false);
-    this.hud.setStats(battle.player, battle.enemy);
     this.clock.groove = true;
     this.clock.barSound = (bar) => (battle.isRestBar(bar) ? "rest" : "call");
     this.clock.onBeat = (b) => battle.onBeat(b);
     this.clock.onOffbeat = (b) => battle.onOffbeat(b);
     battle.start();
     this.hud.setStats(battle.player, battle.enemy);
-    this.clock.start(battle.bpm);
+    this.clock.start(bpm);
+  }
+
+  // ---------- tutorial ----------
+
+  private startTutorial(): void {
+    this.screens.hide();
+    this.run = null;
+    this.battle = null;
+    this.tut = { index: 0, line: 0, tracker: null, fails: 0, practicing: false, exitArmed: 0 };
+    this.stage.player.setSilhouette(false);
+    void this.stage.player.setModel(this.character.model);
+    void this.stage.enemy.setModel(TUTORIAL_DUMMY);
+    this.stage.setEnemyColor("#b0b0b0");
+    void this.stage.scenery.rebuild(7, [this.character.model, TUTORIAL_DUMMY], this.compact());
+    this.hud.show(true);
+    this.hud.setRoundText(t("tutorial"));
+    this.showTutorialStep();
+  }
+
+  private showTutorialStep(): void {
+    const tut = this.tut!;
+    const step = TUTORIAL_STEPS[tut.index];
+    this.clock.stop();
+    tut.line = 0;
+    tut.practicing = false;
+    tut.tracker = null;
+    this.hud.hint(null);
+    this.hud.focus(null);
+    this.hud.dialogue(t(step.lines[0] as Parameters<typeof t>[0]));
+  }
+
+  /** Enter during the guide's lines: next line, then practice (or the next step). */
+  private advanceTutorial(): void {
+    const tut = this.tut!;
+    if (tut.practicing) return;
+    const step = TUTORIAL_STEPS[tut.index];
+    if (tut.line < step.lines.length - 1) {
+      tut.line++;
+      this.hud.dialogue(t(step.lines[tut.line] as Parameters<typeof t>[0]));
+      this.clock.synth.ui();
+      return;
+    }
+    this.hud.dialogue(null);
+    if (step.goal === "confirm") this.nextTutorialStep();
+    else this.startTutorialPractice();
+  }
+
+  private nextTutorialStep(): void {
+    const tut = this.tut!;
+    tut.index++;
+    if (tut.index >= TUTORIAL_STEPS.length) {
+      saveTutorialDone();
+      this.tut = null;
+      this.hud.dialogue(null);
+      this.hud.hint(null);
+      this.hud.focus(null);
+      this.showTitle();
+      return;
+    }
+    this.showTutorialStep();
+  }
+
+  private startTutorialPractice(): void {
+    const tut = this.tut!;
+    const step = TUTORIAL_STEPS[tut.index];
+    const fight = step.goal === "win";
+    const spec = enemyFor(1, new Rng(tut.index + 1), this.character.model);
+    spec.relics = [];
+    spec.model = TUTORIAL_DUMMY;
+    if (!fight) {
+      spec.maxHp = 5;
+      spec.tellChance = step.honestTells ? 1 : 0;
+      spec.tellAccuracy = 1;
+    }
+    const slots: (Consumable | null)[] = [null, null, null, null];
+    if (step.item) slots[0] = itemById(step.item) as Consumable;
+    if (fight) slots.splice(0, 2, itemById("bandage") as Consumable, itemById("lemon_bomb") as Consumable);
+    const battle = new Battle(spec, { hp: 5, maxHp: 5, relics: [], slots }, new Rng(), (e) => this.onEvent(e), {
+      restBars: false,
+      enemyScript: step.enemy,
+      noDefeat: !fight,
+    });
+    if (step.playerEnergy !== undefined) battle.player.energy = step.playerEnergy;
+    tut.tracker = new TutorialTracker(step);
+    tut.fails = 0;
+    tut.practicing = true;
+    this.hud.hint(t(step.hint as Parameters<typeof t>[0]));
+    this.hud.focus(step.focus ?? null);
+    this.mountBattle(battle, fight ? enemyName(spec) : t("tut_dummy"), "", t("tutorial"), TUTORIAL_BPM);
+  }
+
+  /** Runs every battle event through the current step's goal. */
+  private tutorialEvent(e: BattleEvent): void {
+    const tut = this.tut;
+    const battle = this.battle;
+    if (!tut?.practicing || !tut.tracker || !battle) return;
+    const step = TUTORIAL_STEPS[tut.index];
+    if (e.type === "beat" && e.beat === 0 && !e.rest && step.enemyEnergy !== undefined) battle.enemy.energy = step.enemyEnergy;
+    const verdict = tut.tracker.onEvent(e);
+    if (verdict === "success") {
+      tut.practicing = false;
+      const at = this.stage.project(this.stage.cardMeet());
+      this.hud.popup(t("tut_good"), at.x, at.y - 60, "outcome");
+      this.clock.synth.win();
+      window.setTimeout(() => this.nextTutorialStep(), 1300);
+    } else if (verdict === "fail") {
+      this.tutorialFail(step);
+    }
+  }
+
+  private tutorialFail(step: TutorialStep): void {
+    const tut = this.tut!;
+    if (step.goal === "win") {
+      tut.practicing = false;
+      this.clock.stop();
+      this.hud.dialogue(t("tut_fight_lost"));
+      tut.line = step.lines.length - 1;
+      return;
+    }
+    tut.fails++;
+    if (tut.fails >= STRONG_HINT_AFTER) this.hud.hint(`${t(step.hint as Parameters<typeof t>[0])}　${t("tut_strong")}`, true);
+  }
+
+  /** Blocks inputs the current step doesn't teach. Returns true when the press may go through. */
+  private tutorialAllows(input: TutorialInput): boolean {
+    const tut = this.tut;
+    if (!tut) return true;
+    if (!tut.practicing) return false;
+    const step = TUTORIAL_STEPS[tut.index];
+    if (step.allowed.includes(input)) return true;
+    this.hud.hint(t("tut_blocked"), true);
+    window.setTimeout(() => tut.practicing && this.hud.hint(t(step.hint as Parameters<typeof t>[0])), 900);
+    if (step.goal === "wait") this.tutorialFail(step);
+    return false;
+  }
+
+  private exitTutorial(): void {
+    const tut = this.tut!;
+    if (performance.now() - tut.exitArmed > 2000) {
+      tut.exitArmed = performance.now();
+      this.hud.hint(t("tut_exit"), true);
+      return;
+    }
+    this.tut = null;
+    this.hud.dialogue(null);
+    this.hud.hint(null);
+    this.hud.focus(null);
+    this.showTitle();
   }
 
   private act(action: ActionId, event: { timeStamp: number }): void {
     const battle = this.battle;
     if (!battle || battle.finished || !this.clock.running) return;
+    if (!this.tutorialAllows(action)) return;
     const grade = battle.pressAction(action, this.clock.inputBeat(event), this.clock.secondsPerBeat);
     this.hud.press(action, grade !== null);
   }
@@ -213,11 +391,13 @@ export class App {
   private useItem(slot: number, event: { timeStamp: number }): void {
     const battle = this.battle;
     if (!battle || battle.finished || !this.clock.running) return;
+    if (!this.tutorialAllows("item")) return;
     const grade = battle.useItem(slot, this.clock.inputBeat(event), this.clock.secondsPerBeat);
     if (grade === null) this.hud.nopeSlot(slot);
   }
 
   private onEvent(e: BattleEvent): void {
+    this.tutorialEvent(e);
     const battle = this.battle!;
     const synth = this.clock.synth;
     switch (e.type) {
@@ -268,7 +448,7 @@ export class App {
           this.stage.enemy.play(e.winner === "enemy" ? "win" : "lose");
           this.stage.scenery.react(e.winner === "player" ? "win" : "lose");
         });
-        window.setTimeout(() => this.endBattle(e.winner), END_DELAY_MS);
+        if (!this.tut) window.setTimeout(() => this.endBattle(e.winner), END_DELAY_MS);
         break;
     }
   }

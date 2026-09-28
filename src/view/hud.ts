@@ -78,6 +78,8 @@ export class Hud {
   private comboLabel = el("div", "combo-label");
   private comboBar = el("div", "combo-bar");
   private bubble = el("div", "tell-bubble hidden");
+  private dialogueBox = el("div", "dialogue hidden");
+  private hintBar = el("div", "tut-hint hidden");
   private popups = el("div", "popups");
 
   constructor(parent: HTMLElement) {
@@ -108,7 +110,7 @@ export class Hud {
     this.combo.append(this.comboCount, this.comboLabel, this.comboBar);
     bottom.append(slotWrap, padWrap, this.combo);
 
-    this.root.append(top, bottom, this.bubble, this.popups);
+    this.root.append(top, bottom, this.bubble, this.hintBar, this.dialogueBox, this.popups);
     parent.append(this.root);
   }
 
@@ -201,6 +203,39 @@ export class Hud {
       this.slots.append(button);
       this.slotButtons.push(button);
     });
+  }
+
+  /** Tutorial guide's speech box (Enter advances). */
+  dialogue(text: string | null): void {
+    if (text === null) {
+      this.dialogueBox.classList.add("hidden");
+      return;
+    }
+    this.dialogueBox.innerHTML = `<div class="dialogue-face">🍋</div><div class="dialogue-body"><div class="dialogue-name">${t("tut_sennin")}</div><div class="dialogue-text"></div><div class="dialogue-next">${t("tut_next")}</div></div>`;
+    this.dialogueBox.querySelector(".dialogue-text")!.textContent = text;
+    this.dialogueBox.classList.remove("hidden");
+  }
+
+  /** Tutorial goal line under the round badge; `strong` makes it pop. */
+  hint(text: string | null, strong = false): void {
+    this.hintBar.classList.toggle("hidden", !text);
+    this.hintBar.classList.toggle("strong", strong);
+    this.hintBar.textContent = text ?? "";
+    if (strong) {
+      this.hintBar.classList.remove("pop");
+      void this.hintBar.offsetWidth;
+      this.hintBar.classList.add("pop");
+    }
+  }
+
+  /** Highlights one pad button, the item slots, or nothing. */
+  focus(target: ActionId | "slots" | "orbs" | null): void {
+    for (const [action, button] of this.pad) button.classList.toggle("tut-focus", target === action);
+    this.slots.classList.toggle("tut-focus", target === "slots");
+  }
+
+  setRoundText(text: string): void {
+    this.round.textContent = text;
   }
 
   setItemsLocked(locked: boolean): void {

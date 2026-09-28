@@ -101,3 +101,13 @@ export function recordClear(now = new Date()): ClearRecord {
   write(CLEAR_KEY, JSON.stringify(record));
   return record;
 }
+
+const TUTORIAL_KEY = "cc-lemon:tutorial";
+
+export function loadTutorialDone(): boolean {
+  return read(TUTORIAL_KEY) === "done";
+}
+
+export function saveTutorialDone(): void {
+  write(TUTORIAL_KEY, "done");
+}

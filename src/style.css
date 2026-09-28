@@ -1560,3 +1560,105 @@ i.lemon.empty {
 .stock.pick {
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
+
+/* ---------- tutorial ---------- */
+
+.dialogue {
+  position: absolute;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(760px, calc(100% - 24px));
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  background: var(--glass-strong);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 3px solid var(--lemon);
+  border-radius: 22px;
+  padding: 14px 18px;
+  box-shadow: var(--shadow);
+  z-index: 5;
+  animation: pop-in 0.2s ease-out;
+}
+
+.dialogue-face {
+  font-size: 44px;
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  background: #fff3bf;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dialogue-body {
+  flex: 1;
+}
+
+.dialogue-name {
+  font-weight: 900;
+  color: #e67700;
+  font-size: 14px;
+}
+
+.dialogue-text {
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.dialogue-next {
+  text-align: right;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink-soft);
+  animation: glow 0.8s ease-in-out infinite alternate;
+}
+
+.tut-hint {
+  position: absolute;
+  top: calc(max(12px, env(safe-area-inset-top)) + 70px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: #fff;
+  font-weight: 900;
+  padding: 6px 16px;
+  border-radius: 99px;
+  white-space: nowrap;
+  box-shadow: var(--shadow);
+}
+
+.tut-hint.strong {
+  background: #f08c00;
+}
+
+.tut-hint.pop {
+  animation: tut-pop 0.3s ease-out;
+}
+
+@keyframes tut-pop {
+  0% {
+    transform: translateX(-50%) scale(1.3);
+  }
+}
+
+.pad-btn.tut-focus,
+.slots.tut-focus .slot {
+  animation: tut-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes tut-pulse {
+  50% {
+    box-shadow: 0 0 0 5px rgba(255, 212, 59, 0.9), 0 0 24px rgba(255, 212, 59, 0.9);
+  }
+}
+
+.first-time {
+  margin-top: 10px;
+  font-weight: 900;
+  color: #e67700;
+}
