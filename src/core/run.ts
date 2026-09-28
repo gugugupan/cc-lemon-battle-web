@@ -1,0 +1,159 @@
+import { DEFAULT_AI } from "./ai";
+import type { EnemySpec, Loadout } from "./battle";
+import { type Consumable, CONSUMABLES, ENEMY_RELICS, type Item, itemById, type Relic, RELICS } from "./items";
+import { Rng } from "./rng";
+
+export const START_HP = 5;
+export const START_GOLD = 20;
+export const START_SLOTS = 2;
+export const MAX_SLOTS = 4;
+export const VICTORY_HEAL = 1;
+export const ENEMY_NAME_COUNT = 12;
+export const RANK_COUNT = 5;
+export const ENEMY_COLORS = ["#ff8a80", "#8bd17c", "#f6a5c0", "#ffcc66", "#9fa8ff", "#6fd6d0", "#c792ea", "#ffab70"];
+
+export const SERVICES = {
+  heal: { price: 10 },
+  maxHp: { price: 40 },
+  slot: { price: 50 },
+} as const;
+export type ServiceId = keyof typeof SERVICES;
+
+export type Purchase = "ok" | "no_gold" | "bag_full" | "sold_out" | "maxed";
+
+export interface StockEntry {
+  item: Item;
+  sold: boolean;
+}
+
+/**
+ * Enemy for the n-th fight (1-based). Everything ramps with n: more HP, faster tempo, a sharper
+ * and more aggressive brain, fewer tells, and relics from the fourth fight on.
+ */
+export function enemyFor(n: number, rng: Rng): EnemySpec {
+  const k = n - 1;
+  const relicCount = Math.min(3, Math.floor((k + 2) / 5));
+  return {
+    nameIndex: rng.int(0, ENEMY_NAME_COUNT - 1),
+    rank: Math.min(RANK_COUNT - 1, Math.floor(k / 3)),
+    color: rng.pick(ENEMY_COLORS),
+    maxHp: Math.min(9, 3 + Math.floor(k / 4)),
+    maxEnergy: 3,
+    startEnergy: n >= 8 ? 1 : 0,
+    tellChance: Math.max(0.1, 0.3 - 0.015 * k),
+    tellAccuracy: Math.max(0.6, 0.8 - 0.015 * k),
+    ai: {
+      ...DEFAULT_AI,
+      aggression: Math.min(1.5, 0.8 + 0.05 * k),
+      readSkill: Math.min(1.3, 0.3 + 0.06 * k),
+      caution: Math.min(1.2, 0.8 + 0.03 * k),
+      randomness: Math.max(0.05, 0.35 - 0.02 * k),
+    },
+    relics: rng.shuffle(ENEMY_RELICS).slice(0, relicCount),
+    bpm: Math.min(150, 92 + 3 * k),
+  };
+}
+
+export class Run {
+  readonly rng: Rng;
+  round = 1;
+  hp = START_HP;
+  maxHp = START_HP;
+  gold = START_GOLD;
+  relics: Relic[] = [];
+  slots: (Consumable | null)[] = new Array(START_SLOTS).fill(null);
+  stock: StockEntry[] = [];
+  enemy: EnemySpec;
+
+  constructor(seed?: number) {
+    this.rng = new Rng(seed);
+    this.slots[0] = itemById("bandage") as Consumable;
+    this.enemy = enemyFor(this.round, this.rng);
+  }
+
+  get wins(): number {
+    return this.round - 1;
+  }
+
+  loadout(): Loadout {
+    return { hp: this.hp, maxHp: this.maxHp, relics: this.relics, slots: this.slots };
+  }
+
+  goldFor(n: number): number {
+    return 15 + 3 * n;
+  }
+
+  /** Returns the gold won; after a win the next enemy is rolled and the shop restocked. */
+  finishBattle(won: boolean, hpLeft: number): number {
+    this.hp = Math.max(0, Math.min(this.maxHp, hpLeft));
+    if (!won) return 0;
+    const gold = this.goldFor(this.round);
+    this.gold += gold;
+    this.hp = Math.min(this.maxHp, this.hp + VICTORY_HEAL);
+    this.round++;
+    this.enemy = enemyFor(this.round, this.rng);
+    this.rollShop();
+    return gold;
+  }
+
+  rollShop(): void {
+    const consumables = this.rng.shuffle(CONSUMABLES).slice(0, 3);
+    const relics = this.rng.shuffle(RELICS.filter((r) => !this.hasRelic(r.id))).slice(0, 2);
+    this.stock = [...consumables, ...relics].map((item) => ({ item, sold: false }));
+  }
+
+  hasRelic(id: string): boolean {
+    return this.relics.some((r) => r.id === id);
+  }
+
+  buy(index: number): Purchase {
+    const entry = this.stock[index];
+    if (!entry || entry.sold) return "sold_out";
+    if (this.gold < entry.item.price) return "no_gold";
+    if (entry.item.kind === "consumable") {
+      const free = this.slots.indexOf(null);
+      if (free < 0) return "bag_full";
+      this.slots[free] = entry.item;
+    } else {
+      this.relics.push(entry.item);
+    }
+    this.gold -= entry.item.price;
+    entry.sold = true;
+    return "ok";
+  }
+
+  serviceAvailable(id: ServiceId): boolean {
+    switch (id) {
+      case "heal":
+        return this.hp < this.maxHp;
+      case "maxHp":
+        return true;
+      case "slot":
+        return this.slots.length < MAX_SLOTS;
+    }
+  }
+
+  buyService(id: ServiceId): Purchase {
+    if (!this.serviceAvailable(id)) return "maxed";
+    if (this.gold < SERVICES[id].price) return "no_gold";
+    this.gold -= SERVICES[id].price;
+    switch (id) {
+      case "heal":
+        this.hp = Math.min(this.maxHp, this.hp + 1);
+        break;
+      case "maxHp":
+        this.maxHp++;
+        this.hp++;
+        break;
+      case "slot":
+        this.slots.push(null);
+        break;
+    }
+    return "ok";
+  }
+
+  swapSlots(a: number, b: number): void {
+    if (a < 0 || b < 0 || a >= this.slots.length || b >= this.slots.length) return;
+    [this.slots[a], this.slots[b]] = [this.slots[b], this.slots[a]];
+  }
+}
