@@ -1,6 +1,8 @@
 import * as THREE from "three";
-import { type GLTF, GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import type { GLTF } from "three/addons/loaders/GLTFLoader.js";
 import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
+import { loadModel } from "./models";
+import { Scenery } from "./scenery";
 import type { ActionId } from "../core/rules";
 import { ease, Tweens } from "./tween";
 
@@ -69,18 +71,6 @@ const MODEL_HEIGHT = 2.1;
 const GUARD_HOLD = 0.5;
 /** Turn the models a little toward the camera so faces read, instead of pure profile. */
 const FACE_CAMERA = 0.45;
-
-const loader = new GLTFLoader();
-const modelCache = new Map<string, Promise<GLTF>>();
-
-function loadModel(url: string): Promise<GLTF> {
-  let cached = modelCache.get(url);
-  if (!cached) {
-    cached = loader.loadAsync(url);
-    modelCache.set(url, cached);
-  }
-  return cached;
-}
 
 /**
  * One fighter. Shows a rigged glTF character once loaded, and a chunky capsule kid until then
@@ -154,17 +144,17 @@ class FighterModel {
     this.bodyMat.color.set(color);
   }
 
-  /** Swaps in a rigged character; the capsule stays up until it has loaded. */
-  async setModel(url: string): Promise<void> {
-    if (url === this.modelUrl) return this.reset();
-    this.modelUrl = url;
+  /** Swaps in a rigged character (path under public/models); the capsule stays up until it has loaded. */
+  async setModel(path: string): Promise<void> {
+    if (path === this.modelUrl) return this.reset();
+    this.modelUrl = path;
     let gltf: GLTF;
     try {
-      gltf = await loadModel(url);
+      gltf = await loadModel(path);
     } catch {
       return;
     }
-    if (url !== this.modelUrl) return;
+    if (path !== this.modelUrl) return;
     if (this.rig) this.root.remove(this.rig);
     const rig = cloneSkinned(gltf.scene);
     this.rigMaterials = [];
@@ -300,6 +290,7 @@ export class Stage {
   readonly tweens = new Tweens();
   readonly player: FighterModel;
   readonly enemy: FighterModel;
+  readonly scenery: Scenery;
 
   private skyUniforms = { top: { value: SKY_TOP.clone() }, mid: { value: SKY_MID.clone() }, low: { value: SKY_LOW.clone() } };
   private ring: THREE.Mesh;
@@ -338,6 +329,7 @@ export class Stage {
     this.buildSky();
     this.buildLights();
     this.ring = this.buildArena();
+    this.scenery = new Scenery(this.scene);
     this.buildOrbs();
     this.player = new FighterModel("player", "#4dabf7");
     this.enemy = new FighterModel("enemy", "#ff8a80");
@@ -372,11 +364,12 @@ export class Stage {
     const sun = new THREE.DirectionalLight("#fff6e0", 2.2);
     sun.position.set(4, 9, 6);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024);
-    sun.shadow.camera.left = -7;
-    sun.shadow.camera.right = 7;
-    sun.shadow.camera.top = 7;
-    sun.shadow.camera.bottom = -7;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.left = -14;
+    sun.shadow.camera.right = 14;
+    sun.shadow.camera.top = 14;
+    sun.shadow.camera.bottom = -14;
+    sun.shadow.camera.far = 40;
     sun.shadow.radius = 4;
     this.scene.add(sun);
     const rim = new THREE.PointLight("#b8f5ff", 18, 20);
@@ -411,17 +404,6 @@ export class Stage {
     lemon.rotation.x = -Math.PI / 2;
     lemon.position.y = 0.21;
     this.scene.add(floor, inner, ring, lemon);
-    for (let i = 0; i < 18; i++) {
-      const a = (i / 18) * Math.PI * 2;
-      const cube = new THREE.Mesh(
-        new THREE.BoxGeometry(0.5, 0.5 + (i % 3) * 0.3, 0.5),
-        new THREE.MeshStandardMaterial({ color: i % 2 ? "#ffe066" : "#a5f3dc", roughness: 0.6 }),
-      );
-      cube.position.set(Math.cos(a) * 8, 0.2, Math.sin(a) * 8 - 2);
-      cube.rotation.y = a;
-      cube.castShadow = true;
-      this.scene.add(cube);
-    }
     return ring;
   }
 
@@ -491,6 +473,7 @@ export class Stage {
   beat(beatInBar: number, rest: boolean): void {
     this.player.bounce();
     this.enemy.bounce();
+    this.scenery.beat(beatInBar, rest);
     if (beatInBar === 0) this.orbLevel = [0, 0, 0, 0];
     const color = rest ? REST : null;
     this.orbColor.forEach((c, i) => c.copy(color ?? (i === 3 || this.feverOn ? LEMON : MINT)));
@@ -506,6 +489,7 @@ export class Stage {
   }
 
   setFever(on: boolean): void {
+    if (on !== this.feverOn) this.scenery.setFever(on);
     this.feverOn = on;
   }
 
@@ -680,6 +664,7 @@ export class Stage {
     this.tweens.tick(dt);
     this.player.tick(dt);
     this.enemy.tick(dt);
+    this.scenery.tick(dt);
     this.onFrame(dt);
 
     this.feverK += ((this.feverOn ? 1 : 0) - this.feverK) * Math.min(1, dt * 3);

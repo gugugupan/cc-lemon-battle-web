@@ -14,9 +14,7 @@ const BEST_KEY = "cc-lemon:best";
 const REST_KEY = "cc-lemon:rest-bars";
 const END_DELAY_MS = 1300;
 
-function modelUrl(name: string): string {
-  return `${import.meta.env.BASE_URL}models/${name}.glb`;
-}
+
 
 function loadRestBars(): boolean {
   try {
@@ -55,11 +53,17 @@ export class App {
     this.hud.onAction = (a, e) => this.act(a, e);
     this.hud.onItem = (slot, e) => this.useItem(slot, e);
     this.stage.onFrame = (dt) => this.frame(dt);
-    void this.stage.player.setModel(modelUrl(PLAYER_MODEL));
-    void this.stage.enemy.setModel(modelUrl("character-female-b"));
+    void this.stage.player.setModel(PLAYER_MODEL);
+    void this.stage.enemy.setModel("character-female-b");
+    void this.stage.scenery.rebuild(Date.now(), [PLAYER_MODEL, "character-female-b"], this.compact());
     this.applyLang();
     window.addEventListener("keydown", (e) => this.key(e));
     this.showTitle();
+  }
+
+  /** Portrait / small screens get a lighter park. */
+  private compact(): boolean {
+    return window.innerWidth < window.innerHeight || window.innerWidth < 700;
   }
 
   private applyLang(): void {
@@ -137,8 +141,9 @@ export class App {
     this.battle = null;
     this.clock.stop();
     this.stage.setEnemyColor(run.enemy.color);
-    void this.stage.player.setModel(modelUrl(PLAYER_MODEL));
-    void this.stage.enemy.setModel(modelUrl(run.enemy.model));
+    void this.stage.player.setModel(PLAYER_MODEL);
+    void this.stage.enemy.setModel(run.enemy.model);
+    void this.stage.scenery.rebuild(run.rng.int(0, 2 ** 30), [PLAYER_MODEL, run.enemy.model], this.compact());
     this.stage.setFever(false);
     this.hud.show(false);
     this.screens.intro(run, () => this.beginBattle());
@@ -232,6 +237,7 @@ export class App {
         this.stage.tweens.delay(0.35, () => {
           this.stage.player.play(e.winner === "player" ? "win" : "lose");
           this.stage.enemy.play(e.winner === "enemy" ? "win" : "lose");
+          this.stage.scenery.react(e.winner === "player" ? "win" : "lose");
         });
         window.setTimeout(() => this.endBattle(e.winner), END_DELAY_MS);
         break;
@@ -311,6 +317,7 @@ export class App {
           synth.hit();
           const at = this.stage.screenOf(side, 2.6);
           this.hud.popup(t("fx_damage", s.damageTaken), at.x, at.y, "damage big");
+          this.stage.scenery.react(side === "enemy" ? "yay" : "aww");
           const other = side === "player" ? r.enemy : r.player;
           if (!r.clash && other.action === "special" && s.action === "guard") this.hud.popup(t("guardBreak"), meet.x, meet.y - 70, "outcome");
         }

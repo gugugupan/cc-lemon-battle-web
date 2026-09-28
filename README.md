@@ -49,5 +49,11 @@ tests/        vitest
 - 角色模型：`public/models/` 来自 [Kenney · Mini Characters](https://kenney.nl/assets/mini-characters)（CC0，许可见 `public/models/License.txt`）。
   每个 `.glb` 自带动画，`src/view/stage.ts` 的 `CLIPS` 把招式对应到动画名（出拳 / 踢腿 / 蹲下 / 点头 / 摇头 / 跳 / 倒下）；
   模型加载前或加载失败时，显示原来的胶囊小人。敌人按名字的性别从模型池里抽。
+- 场景：`public/models/forest/`（[Mini Forest](https://kenney.nl/assets/mini-forest)：树、岩石、栅栏、旗子、帐篷、草地）、
+  `public/models/arcade/`（[Mini Arcade](https://kenney.nl/assets/mini-arcade)：自动贩卖机、夹娃娃机、街机）、
+  `public/models/pets/`（[Cube Pets](https://kenney.nl/assets/cube-pets)：8 种动物），均为 Kenney 的 CC0 素材，许可文件在各自的文件夹里。
+  每个包有自己的 `Textures/colormap.png`，所以分文件夹存放。
+  `src/view/scenery.ts` 每场战斗用随机种子重新布置：围观者（没上场的角色）站在栅栏外，跟着节拍晃动，「モン」时有人跳，FEVER 时全员跳，
+  有人被打中时欢呼或叹气；小动物在舞台和栅栏之间走走停停，FEVER 时跳舞，结束时根据胜负做出反应。
 - 其余没有外部图片和音频：舞台是 Three.js 几何体，图标用 emoji，音效由 Web Audio 实时合成。
 字体从 Google Fonts 加载（M PLUS Rounded 1c、Noto Sans SC，OFL）。
