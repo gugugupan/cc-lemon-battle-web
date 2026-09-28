@@ -1,11 +1,25 @@
 import type { ActionId, Fighter, RoundResult } from "./rules";
 import { clamp } from "./rules";
 
-export type Trigger = "battle_start" | "round" | "perfect" | "clash" | "hit" | "guarded" | "damaged" | "wait" | "fever_start" | "fever_end";
+/** `foe_fever_*` fire for the other side's relics when this side's FEVER starts or ends. */
+export type Trigger =
+  | "battle_start"
+  | "round"
+  | "perfect"
+  | "clash"
+  | "hit"
+  | "guarded"
+  | "damaged"
+  | "wait"
+  | "fever_start"
+  | "fever_end"
+  | "foe_fever_start"
+  | "foe_fever_end";
 
 export type Condition =
   | { type: "everyNth"; n: number }
   | { type: "inFever" }
+  | { type: "foeInFever" }
   | { type: "perfectAction" }
   | { type: "used"; action: ActionId }
   | { type: "perfectStreakEvery"; n: number }
@@ -42,6 +56,8 @@ export interface Modifiers {
   damageBonus: number;
   /** Like `damageBonus`, only while in FEVER. */
   feverDamageBonus: number;
+  /** Like `damageBonus`, only while the *other* side is in FEVER. */
+  damageVsFeverAdd: number;
   /** A guard by this side also stops this much extra attack (1 = blocks the special). */
   guardDefenseAdd: number;
   /** Fight tempo: (base + add) × mult. */
@@ -64,6 +80,7 @@ export const NEUTRAL_MODS: Modifiers = {
   feverThresholdAdd: 0,
   damageBonus: 0,
   feverDamageBonus: 0,
+  damageVsFeverAdd: 0,
   guardDefenseAdd: 0,
   bpmAdd: 0,
   bpmMult: 1,
@@ -130,7 +147,11 @@ export const ENEMY_RELICS: Relic[] = [
   { id: "onigiri", kind: "relic", icon: "🍙", price: 0, tier: 1, triggers: [{ on: "round", when: [{ type: "everyNth", n: 4 }], effects: [{ type: "heal", amount: 1 }] }] },
   { id: "alarm_clock", kind: "relic", icon: "⏰", price: 0, tier: 1, triggers: [{ on: "wait", effects: [{ type: "energy", amount: 1 }] }] },
   { id: "mirror", kind: "relic", icon: "🪞", price: 0, tier: 1, triggers: [{ on: "clash", effects: [{ type: "damage", amount: 1 }] }] },
+  { id: "boo", kind: "relic", icon: "📢", price: 0, tier: 1, triggers: [{ on: "foe_fever_start", effects: [{ type: "energy", amount: 2 }] }] },
+  { id: "grudge", kind: "relic", icon: "😤", price: 0, tier: 1, triggers: [{ on: "foe_fever_end", effects: [{ type: "heal", amount: 2 }] }] },
   { id: "iron_wall", kind: "relic", icon: "🧱", price: 0, tier: 2, mods: { guardDefenseAdd: 1 } },
+  { id: "extinguisher", kind: "relic", icon: "🧯", price: 0, tier: 2, triggers: [{ on: "foe_fever_start", effects: [{ type: "drain", amount: 9 }] }] },
+  { id: "rain_cloud", kind: "relic", icon: "🌧️", price: 0, tier: 2, triggers: [{ on: "round", when: [{ type: "foeInFever" }, { type: "everyNth", n: 2 }], effects: [{ type: "energy", amount: 1 }] }] },
   { id: "poker_face", kind: "relic", icon: "🃏", price: 0, tier: 2, mods: { tellAccuracyAdd: -0.4 } },
   { id: "allegro", kind: "relic", icon: "🎵", price: 0, tier: 2, mods: { bpmAdd: 20 } },
   { id: "power_bank", kind: "relic", icon: "🔋", price: 0, tier: 2, mods: { maxEnergyAdd: 1 }, triggers: [{ on: "battle_start", effects: [{ type: "energy", amount: 1 }] }] },
@@ -142,6 +163,8 @@ export const ENEMY_RELICS: Relic[] = [
   { id: "boxing_gloves", kind: "relic", icon: "🥊", price: 0, tier: 3, mods: { damageBonus: 1 } },
   { id: "pressure", kind: "relic", icon: "😰", price: 0, tier: 3, mods: { perfectWindowMult: 0.7 } },
   { id: "yawn", kind: "relic", icon: "🥱", price: 0, tier: 3, mods: { feverThresholdAdd: 4 } },
+  { id: "mark", kind: "relic", icon: "🎯", price: 0, tier: 3, mods: { damageVsFeverAdd: 1 } },
+  { id: "cold_shoulder", kind: "relic", icon: "🥶", price: 0, tier: 3, triggers: [{ on: "foe_fever_end", effects: [{ type: "damage", amount: 1 }, { type: "energy", amount: 1 }] }] },
 ];
 
 export const ALL_ITEMS: Item[] = [...CONSUMABLES, ...RELICS, ...ENEMY_RELICS];
@@ -166,6 +189,7 @@ export function combineMods(relics: readonly Relic[]): Modifiers {
     m.feverThresholdAdd += r.mods.feverThresholdAdd ?? 0;
     m.damageBonus += r.mods.damageBonus ?? 0;
     m.feverDamageBonus += r.mods.feverDamageBonus ?? 0;
+    m.damageVsFeverAdd += r.mods.damageVsFeverAdd ?? 0;
     m.guardDefenseAdd += r.mods.guardDefenseAdd ?? 0;
     m.bpmAdd += r.mods.bpmAdd ?? 0;
     m.bpmMult *= r.mods.bpmMult ?? 1;
@@ -190,6 +214,8 @@ export interface EffectContext {
   round: RoundResult | null;
   perfectStreak: number;
   fever: boolean;
+  /** Whether the other side is in FEVER (only the player can be, so this is for enemy relics). */
+  foeFever: boolean;
   requests: { nullify: boolean; trueTell: boolean };
 }
 
@@ -268,6 +294,8 @@ export class RelicRunner {
       }
       case "inFever":
         return ctx.fever;
+      case "foeInFever":
+        return ctx.foeFever;
       case "perfectAction":
         return ctx.round?.player.grade === "perfect";
       case "used":

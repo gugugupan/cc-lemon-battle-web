@@ -213,11 +213,10 @@ export class Battle {
     if (this.options.restBars) this.restBars.add(bar + 1);
     this.emit({ type: "judge", grade, delta, what: "action" });
     this.trackPerfect(grade);
-    this.setCombo(this.combo + 1);
 
     const result = resolve(this.player, action, this.enemy, enemyAction, {
       playerDamageBonus: this.mods.damageBonus + (this.fever ? this.mods.feverDamageBonus : 0),
-      enemyDamageBonus: this.enemyMods.damageBonus,
+      enemyDamageBonus: this.enemyMods.damageBonus + (this.fever ? this.enemyMods.damageVsFeverAdd : 0),
       playerGuardBonus: this.mods.guardDefenseAdd,
       enemyGuardBonus: this.enemyMods.guardDefenseAdd,
       playerCanGuard: this.mods.canGuard,
@@ -230,6 +229,9 @@ export class Battle {
     this.playerHistory.push(action);
     this.pendingRound = result;
     this.emit({ type: "reveal", result });
+    // The combo (and so FEVER, and relics reacting to it) moves after the round resolves, so a
+    // FEVER-start effect never changes the action that triggered it.
+    this.setCombo(this.combo + 1);
     if (grade === "perfect") this.fire("player", "perfect", result);
     return grade;
   }
@@ -288,8 +290,14 @@ export class Battle {
     this.fever = fever;
     this.emit({ type: "combo", combo, fever, threshold: this.feverThreshold });
     if (started || ended) this.emit({ type: "fever", on: fever });
-    if (started) this.fire("player", "fever_start", null);
-    if (ended) this.fire("player", "fever_end", null);
+    if (started) {
+      this.fire("player", "fever_start", null);
+      this.fire("enemy", "foe_fever_start", null);
+    }
+    if (ended) {
+      this.fire("player", "fever_end", null);
+      this.fire("enemy", "foe_fever_end", null);
+    }
   }
 
   private context(side: "player" | "enemy", round: RoundResult | null): EffectContext {
@@ -300,6 +308,7 @@ export class Battle {
       round,
       perfectStreak: mine ? this.perfectStreak : 0,
       fever: mine && this.fever,
+      foeFever: !mine && this.fever,
       requests: { nullify: false, trueTell: false },
     };
   }

@@ -355,3 +355,64 @@ describe("rule-changing relics", () => {
     expect(battle.player.maxEnergy).toBe(4);
   });
 });
+
+describe("FEVER-reactive enemy relics", () => {
+  const relic = (id: string) => itemById(id) as Relic;
+
+  /** Acts on every call bar until FEVER starts, keeping both sides healthy. */
+  function reachFever(enemyRelics: string[], playerRelics: string[] = []) {
+    const spec = enemyFor(1, new Rng(1));
+    spec.relics = enemyRelics.map(relic);
+    spec.tellChance = 0;
+    const events: BattleEvent[] = [];
+    const battle = new Battle(spec, { hp: 5, maxHp: 5, relics: playerRelics.map(relic), slots: [] }, new Rng(2), (e) => events.push(e));
+    battle.start();
+    const spb = 60 / battle.bpm;
+    let beat = 0;
+    while (!battle.fever) {
+      battle.onBeat(beat);
+      if (beat % 4 === 3 && !battle.isRestBar(Math.floor(beat / 4))) {
+        battle.player.hp = battle.enemy.hp = 5;
+        battle.player.energy = 2;
+        battle.pressAction("guard", beat, spb);
+      }
+      battle.onOffbeat(beat);
+      beat++;
+    }
+    return { battle, events, beat };
+  }
+
+  function breakFever(battle: Battle, from: number): void {
+    for (let beat = from; battle.fever; beat++) {
+      battle.onBeat(beat);
+      battle.onOffbeat(beat);
+    }
+  }
+
+  it("boo and extinguisher fire when the player's FEVER starts", () => {
+    const { battle } = reachFever(["boo", "extinguisher"]);
+    expect(battle.player.energy).toBe(0);
+    expect(battle.enemy.energy).toBeGreaterThanOrEqual(2);
+  });
+
+  it("grudge and cold shoulder fire when the player's FEVER breaks", () => {
+    const { battle, beat } = reachFever(["grudge", "cold_shoulder"]);
+    battle.enemy.hp = 1;
+    battle.player.hp = 5;
+    breakFever(battle, beat);
+    expect(battle.enemy.hp).toBe(3);
+    expect(battle.player.hp).toBe(4);
+  });
+
+  it("mark adds 1 to the enemy's hits while the player is in FEVER", () => {
+    const { battle, beat } = reachFever(["mark"]);
+    let b = beat;
+    while (b % 4 !== 3) battle.onBeat(b++);
+    battle.onBeat(b);
+    battle.player.hp = 5;
+    battle.enemy.energy = 1;
+    (battle as unknown as { enemyChoice: string }).enemyChoice = "attack";
+    battle.pressAction("charge", b, 60 / battle.bpm);
+    expect(battle.player.hp).toBe(3);
+  });
+});
