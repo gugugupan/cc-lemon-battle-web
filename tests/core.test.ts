@@ -65,6 +65,24 @@ describe("ai", () => {
     }
   });
 
+  it("never guards against a player with no energy", () => {
+    const rng = new Rng(8);
+    for (let i = 0; i < 500; i++) {
+      expect(decide(f(rng.int(0, 3)), f(0), ["charge"], { ...DEFAULT_AI, randomness: 0.5 }, rng)).not.toBe("guard");
+    }
+  });
+
+  it("guards more when the player is at full energy", () => {
+    const rng = new Rng(9);
+    let low = 0;
+    let full = 0;
+    for (let i = 0; i < 2000; i++) {
+      if (decide(f(1), f(1), [], { ...DEFAULT_AI, randomness: 0 }, rng) === "guard") low++;
+      if (decide(f(1), f(3), [], { ...DEFAULT_AI, randomness: 0 }, rng) === "guard") full++;
+    }
+    expect(full).toBeGreaterThan(low * 1.5);
+  });
+
   it("predicts the usual follow-up", () => {
     expect(predict(["charge", "attack", "charge", "attack", "charge"], 5)).toBe("attack");
   });

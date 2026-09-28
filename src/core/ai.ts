@@ -51,49 +51,48 @@ function tally(list: readonly ActionId[]): Map<ActionId, number> {
   return m;
 }
 
-/**
- * One enemy brain for everyone, tuned by parameters. Never picks what it can't pay for and never
- * charges at full energy.
- */
-export function decide(self: Fighter, foe: Fighter, foeHistory: readonly ActionId[], params: AiParams, rng: Rng): ActionId {
-  let choice: ActionId;
-  if (rng.chance(params.randomness)) {
-    choice = rng.pick(affordable(self));
-  } else {
-    choice = weighted(self, foe, foeHistory, params, rng);
-  }
-  if (!canAfford(self, choice)) choice = "charge";
-  if (choice === "charge" && self.energy >= self.maxEnergy) {
-    choice = rng.pick(affordable(self).filter((a) => a !== "charge"));
-  }
-  return choice;
+/** What the enemy remembers about the last round, for follow-ups. */
+export interface AiMemory {
+  /** The enemy's last action landed damage on the player. */
+  lastHit: boolean;
 }
 
-function weighted(self: Fighter, foe: Fighter, foeHistory: readonly ActionId[], p: AiParams, rng: Rng): ActionId {
+/** Moves the enemy may pick. Hard rules: never guard an opponent who can't attack, never charge at full. */
+function options(self: Fighter, foe: Fighter): ActionId[] {
+  let moves = affordable(self);
+  if (!canAfford(foe, "attack")) moves = moves.filter((a) => a !== "guard");
+  if (self.energy >= self.maxEnergy) moves = moves.filter((a) => a !== "charge");
+  return moves.length > 0 ? moves : ["charge"];
+}
+
+/**
+ * One enemy brain for everyone, tuned by parameters. Never picks what it can't pay for, never
+ * charges at full energy, never guards when the player has no energy to attack with, and guards
+ * more when the player is full (a special may be coming).
+ */
+export function decide(self: Fighter, foe: Fighter, foeHistory: readonly ActionId[], params: AiParams, rng: Rng, memory: AiMemory = { lastHit: false }): ActionId {
+  const moves = options(self, foe);
+  if (rng.chance(params.randomness)) return rng.pick(moves);
+  return weighted(self, foe, foeHistory, params, rng, memory, moves);
+}
+
+function weighted(self: Fighter, foe: Fighter, foeHistory: readonly ActionId[], p: AiParams, rng: Rng, memory: AiMemory, moves: ActionId[]): ActionId {
   const threat = canAfford(foe, "attack");
+  const foeFull = foe.energy >= foe.maxEnergy;
   let predicted = predict(foeHistory, p.historyWindow);
   if (predicted !== null && !canAfford(foe, predicted)) predicted = null;
   const lowHp = self.hp / self.maxHp <= p.lowHpRatio;
   const expectsHit = predicted === "attack" || predicted === "special";
 
-  const weights: [ActionId, number][] = [];
-  if (self.energy < self.maxEnergy) {
-    weights.push(["charge", 1 + (threat ? 0 : 1) - (expectsHit ? 0.6 * p.readSkill : 0)]);
-  }
-  let guard = 0.2 + (threat ? 0.8 * p.caution : 0) + (expectsHit ? 1.2 * p.readSkill : 0);
-  if (lowHp && threat) guard *= 1.5;
-  weights.push(["guard", guard]);
-  if (canAfford(self, "attack")) {
-    let attack = 0.6 + (threat ? 0 : 0.6);
-    if (predicted === "charge") attack += 1.2 * p.readSkill;
-    if (predicted === "guard") attack -= 0.5 * p.readSkill;
-    weights.push(["attack", attack * p.aggression]);
-  }
-  if (canAfford(self, "special")) {
-    const special = 1.5 + (predicted === "guard" || predicted === "charge" ? p.readSkill : 0);
-    weights.push(["special", special * p.aggression]);
-  }
-  return rng.weighted(weights.map(([a, w]) => [a, Math.max(MIN_WEIGHT, w)] as [ActionId, number]));
+  const weight: Record<ActionId, number> = {
+    charge: 0.7 + (self.energy === 0 ? 0.6 : 0) + (self.energy === 2 ? 0.4 * p.aggression : 0) + (threat ? 0 : 0.5) - (expectsHit ? 0.5 * p.readSkill : 0),
+    guard: (0.15 + (threat ? 0.5 * p.caution : 0) + (expectsHit ? 1.0 * p.readSkill : 0)) * (lowHp && threat ? 1.4 : 1) * (foeFull ? 2.5 : 1),
+    attack:
+      (1.1 + (threat ? 0 : 0.7) + (predicted === "charge" ? 1.2 * p.readSkill : 0) - (predicted === "guard" ? 0.4 * p.readSkill : 0) + (memory.lastHit ? 0.8 : 0)) *
+      p.aggression,
+    special: (3.2 + (predicted === "guard" || predicted === "charge" ? p.readSkill : 0) + (memory.lastHit ? 0.5 : 0)) * p.aggression,
+  };
+  return rng.weighted(moves.map((a) => [a, Math.max(MIN_WEIGHT, weight[a])] as [ActionId, number]));
 }
 
 export const TELL_WAIT_DECAY = 0.5;

@@ -65,9 +65,9 @@ export function enemyFor(n: number, rng: Rng): EnemySpec {
     tellAccuracy: Math.max(0.6, 0.8 - 0.015 * k),
     ai: {
       ...DEFAULT_AI,
-      aggression: Math.min(1.5, 0.8 + 0.05 * k),
+      aggression: Math.min(1.8, 1.0 + 0.08 * k),
       readSkill: Math.min(1.3, 0.3 + 0.06 * k),
-      caution: Math.min(1.2, 0.8 + 0.03 * k),
+      caution: 0.8,
       randomness: Math.max(0.05, 0.35 - 0.02 * k),
     },
     relics: rng.shuffle(ENEMY_RELICS.filter((r) => (r.tier ?? 1) <= tier)).slice(0, relicCount),

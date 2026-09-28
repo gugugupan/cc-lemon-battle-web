@@ -111,6 +111,7 @@ export class Battle {
   /** Player rounds including waits, for chain-based relics. */
   private playerSequence: (ActionId | "wait")[] = [];
   private nextHitBonus = 0;
+  private enemyLastHit = false;
   private shieldNext = false;
   private tellNextBar = false;
   readonly costs: CostAdjust;
@@ -250,6 +251,7 @@ export class Battle {
     this.playerHistory.push(action);
     this.playerSequence.push(action);
     this.pendingRound = result;
+    this.enemyLastHit = result.enemy.damageDealt > 0;
     this.emit({ type: "reveal", result });
     // The combo (and so FEVER, and relics reacting to it) moves after the round resolves, so a
     // FEVER-start effect never changes the action that triggered it.
@@ -293,7 +295,7 @@ export class Battle {
   }
 
   private decideEnemy(): ActionId {
-    return decide(this.enemy, this.player, this.playerHistory, this.spec.ai, this.rng);
+    return decide(this.enemy, this.player, this.playerHistory, this.spec.ai, this.rng, { lastHit: this.enemyLastHit });
   }
 
   private trackPerfect(grade: Grade): void {
