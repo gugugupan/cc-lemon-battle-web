@@ -1,6 +1,8 @@
 import { ACTION_BEAT, Battle, type BattleOptions, BEATS_PER_BAR, type EnemySpec, type Loadout } from "./battle";
 import { Rng } from "./rng";
 import type { ActionId } from "./rules";
+import type { Character } from "./characters";
+import { GOAL_ROUNDS, Run } from "./run";
 
 export type Strategy = "sensible" | "tell_reader";
 
@@ -14,7 +16,7 @@ export function simulate(
   perfectRate: number,
   seed: number,
   options?: Partial<BattleOptions>,
-): { won: boolean; hpLeft: number; bars: number } {
+): { won: boolean; hpLeft: number; bars: number; slotsLeft: Loadout["slots"] } {
   const rng = new Rng(seed);
   let tell: ActionId | null = null;
   let waitedForTell = false;
@@ -46,7 +48,7 @@ export function simulate(
     }
     battle.onOffbeat(beat);
   }
-  return { won: battle.winner === "player", hpLeft: battle.player.hp, bars: Math.floor(beat / BEATS_PER_BAR) };
+  return { won: battle.winner === "player", hpLeft: battle.player.hp, bars: Math.floor(beat / BEATS_PER_BAR), slotsLeft: battle.loadout.slots };
 }
 
 function pick(strategy: Strategy, battle: Battle, tell: ActionId | null, waited: boolean, rng: Rng): ActionId | null {
@@ -64,4 +66,27 @@ function pick(strategy: Strategy, battle: Battle, tell: ActionId | null, waited:
   if (roll < 0.45) return "guard";
   if (roll < 0.8 && me.energy < me.maxEnergy) return "charge";
   return canAfford(me, "attack") ? "attack" : "charge";
+}
+
+/**
+ * Plays a whole run with one character: fights in a row with HP and gold carried over, and a
+ * simple shopper in between (rest when hurt, then random affordable relics, then consumables).
+ * Returns how many fights were won before losing, capped at the goal.
+ */
+export function simulateRun(character: Character, strategy: Strategy, perfectRate: number, seed: number): number {
+  const run = new Run(seed, character);
+  const shopper = new Rng(seed + 7);
+  while (run.wins < GOAL_ROUNDS) {
+    const result = simulate(run.enemy, run.loadout(), strategy, perfectRate, seed * 131 + run.round);
+    run.slots = result.slotsLeft;
+    run.finishBattle(result.won, result.hpLeft);
+    if (!result.won) break;
+    while (run.hp < run.maxHp - 1 && run.rest() === "ok");
+    for (const i of shopper.shuffle(run.stock.map((_, i) => i))) {
+      const entry = run.stock[i];
+      if (entry.item.kind === "relic") run.buy(i);
+    }
+    for (let i = 0; i < run.stock.length; i++) run.buy(i);
+  }
+  return run.wins;
 }

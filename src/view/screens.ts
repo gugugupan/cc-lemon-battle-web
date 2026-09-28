@@ -1,6 +1,7 @@
 import type { BeatClock } from "../audio/clock";
 import { type EnemySpec, enemyStats, fightBpm } from "../core/battle";
 import type { Item } from "../core/items";
+import { type Character, startItems, startRelics } from "../core/characters";
 import { GOAL_ROUNDS, REST_HEAL, REST_PRICE, type Run, sellPrice } from "../core/run";
 import type { ClearRecord } from "../game/progress";
 import { currentLang, t } from "../i18n";
@@ -113,6 +114,78 @@ export class Screens {
     ], "title");
   }
 
+  /**
+   * Character select. `index` is the one shown first; `onShow` fires for every character browsed
+   * (the stage shows its model).
+   */
+  select(
+    characters: Character[],
+    index: number,
+    unlocked: (c: Character) => boolean,
+    best: (c: Character) => number,
+    onShow: (c: Character, unlocked: boolean) => void,
+    onStart: (c: Character) => void,
+    onBack: () => void,
+  ): void {
+    let i = index;
+    const render = () => {
+      const c = characters[i];
+      const open = unlocked(c);
+      onShow(c, open);
+      const kit = [...startRelics(c), ...startItems(c)];
+      const unlockText =
+        c.unlock.type === "wins" ? t("unlockWins", c.unlock.n) : c.unlock.type === "buy" ? t("unlockBuy", itemName(c.unlock.item)) : "";
+      const dots = characters.map((ch, j) => `<button class="char-dot ${j === i ? "on" : ""} ${unlocked(ch) ? "" : "locked"}" data-char="${j}">${unlocked(ch) ? "" : "🔒"}</button>`).join("");
+      const panel = h(`<div class="panel select-panel">
+        <div class="select-head"><h2>${t("chooseTitle")}</h2><span class="muted small">${t("chooseHint")}</span></div>
+        <div class="char-dots">${dots}</div>
+        <div class="char-card ${open ? "" : "locked"}">
+          <button class="char-arrow" data-step="-1">◀</button>
+          <div class="char-info">
+            <div class="char-name">${open ? escape(t(`char_${c.id}` as Parameters<typeof t>[0])) : "？？？"}</div>
+            <div class="char-role">${open ? escape(t(`char_${c.id}_role` as Parameters<typeof t>[0])) : escape(unlockText)}</div>
+            ${open ? `
+            <div class="char-stats"><span class="hearts">${pips(c.hp, c.hp, "heart", "heart empty")}</span><span class="gold">🪙 ${t("startGold", c.gold)}</span></div>
+            <h3>${t("startKit")}</h3>
+            <div class="item-list">${kit.length ? kit.map(itemRow).join("") : `<p class="muted">${t("none")}</p>`}</div>
+            <div class="char-best">${best(c) > 0 ? t("charBest", best(c)) : t("charBestNone")}</div>` : `<div class="char-lock">${t("locked")}</div>`}
+          </div>
+          <button class="char-arrow" data-step="1">▶</button>
+        </div>
+      </div>`);
+      panel.querySelectorAll<HTMLElement>("[data-step]").forEach((b) => b.addEventListener("click", () => step(Number(b.dataset.step))));
+      panel.querySelectorAll<HTMLElement>("[data-char]").forEach((b) =>
+        b.addEventListener("click", () => {
+          i = Number(b.dataset.char);
+          render();
+        }),
+      );
+      this.show(panel, [
+        { label: t("chooseStart"), onClick: () => onStart(c), primary: open, disabled: !open },
+        { label: t("back"), onClick: onBack, ghost: true },
+      ], "select");
+      if (!open) this.primary = null;
+      this.keyHandler = (e) => {
+        if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+          e.preventDefault();
+          step(e.key === "ArrowLeft" ? -1 : 1);
+          return true;
+        }
+        if (e.key === "Escape") {
+          onBack();
+          return true;
+        }
+        return false;
+      };
+    };
+    const step = (d: number) => {
+      i = (i + d + characters.length) % characters.length;
+      this.sfx();
+      render();
+    };
+    render();
+  }
+
   howto(onBack: () => void): void {
     const panel = h(`<div class="panel"><h2>${t("howto")}</h2><p class="howto">${escape(t("howtoBody")).replace(/\n/g, "<br>")}</p></div>`);
     this.show(panel, [{ label: t("back"), onClick: onBack, primary: true }]);
@@ -197,7 +270,7 @@ export class Screens {
     this.show(panel, [{ label: t("fight"), onClick: onFight, primary: true }], "dim");
   }
 
-  cleared(record: ClearRecord, onEnd: () => void, onEndless: () => void): void {
+  cleared(record: ClearRecord, unlockedNames: string[], onEnd: () => void, onEndless: () => void): void {
     const letters = [...t("clearTitle")].map((c, i) => `<span style="animation-delay:${i * 0.08}s">${escape(c)}</span>`).join("");
     const panel = h(`<div class="panel banner-panel clear-panel">
       <div class="trophy">🏆</div>
@@ -205,6 +278,7 @@ export class Screens {
       <p>${t("clearBody", GOAL_ROUNDS)}</p>
       <p class="muted">${t("clearCount", record.count)}</p>
       <p class="muted small">${t("clearEndlessHint")}</p>
+      ${unlockedNames.map((n) => `<p class="unlock-note">${escape(t("unlockedNew", n))}</p>`).join("")}
     </div>`);
     this.show(panel, [
       { label: t("clearEndless"), onClick: onEndless, primary: true },
@@ -217,7 +291,8 @@ export class Screens {
     this.show(panel, [{ label: t("toShop"), onClick: onNext, primary: true }], "dim");
   }
 
-  shop(run: Run, onNext: () => void, feedback: (ok: boolean) => void): void {
+  /** `onBought` may return a line to add under the purchase message (e.g. a new unlock). */
+  shop(run: Run, onNext: () => void, feedback: (ok: boolean) => void, onBought: () => string = () => ""): void {
     let selected: number | null = null;
     let message = "";
     const render = () => {
@@ -260,6 +335,10 @@ export class Screens {
         b.addEventListener("click", () => {
           const result = run.buy(Number(b.dataset.buy));
           message = t(result);
+          if (result === "ok") {
+            const extra = onBought();
+            if (extra) message = `${message}　${extra}`;
+          }
           feedback(result === "ok");
           render();
         }),
@@ -312,8 +391,9 @@ export class Screens {
     render();
   }
 
-  gameOver(wins: number, newBest: boolean, onAgain: () => void, onTitle: () => void): void {
-    const panel = h(`<div class="panel banner-panel lose"><h1>${t("gameOver")}</h1><p>${t("result", wins)}</p>${newBest ? `<p class="new-best">${t("newBest")}</p>` : ""}</div>`);
+  gameOver(wins: number, newBest: boolean, unlockedNames: string[], onAgain: () => void, onTitle: () => void): void {
+    const unlocks = unlockedNames.map((n) => `<p class="unlock-note">${escape(t("unlockedNew", n))}</p>`).join("");
+    const panel = h(`<div class="panel banner-panel lose"><h1>${t("gameOver")}</h1><p>${t("result", wins)}</p>${newBest ? `<p class="new-best">${t("newBest")}</p>` : ""}${unlocks}</div>`);
     this.show(panel, [
       { label: t("again"), onClick: onAgain, primary: true },
       { label: t("toTitle"), onClick: onTitle },

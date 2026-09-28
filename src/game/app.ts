@@ -3,11 +3,12 @@ import { Battle, type BattleEvent } from "../core/battle";
 import type { EffectReport } from "../core/items";
 import { Rng } from "../core/rng";
 import type { ActionId, RoundResult } from "../core/rules";
-import { PLAYER_MODEL, Run, tellVariety } from "../core/run";
+import { type Character, CHARACTERS, characterById, isUnlocked } from "../core/characters";
+import { Run, tellVariety } from "../core/run";
 import { currentLang, setLang, t } from "../i18n";
 import { Hud, itemName } from "../view/hud";
 import { enemyName, enemyRank, roundLabel, Screens } from "../view/screens";
-import { loadBest, loadClear, recordClear, saveBest } from "./progress";
+import { loadBest, loadBests, loadBought, loadClear, loadLastCharacter, recordBought, recordClear, saveBestFor, saveLastCharacter } from "./progress";
 import { Stage } from "../view/stage";
 
 const KEY_ACTIONS: Record<string, ActionId> = { ArrowRight: "attack", ArrowLeft: "guard", ArrowDown: "charge", ArrowUp: "special" };
@@ -23,7 +24,10 @@ export class App {
   private screens: Screens;
   private run: Run | null = null;
   private battle: Battle | null = null;
-  private best = loadBest();
+  private lastCharacter = loadLastCharacter();
+  private character: Character = characterById(this.lastCharacter);
+  /** Characters unlocked so far, to announce new ones. */
+  private known = new Set(this.unlockedIds());
   private idle = 0;
 
   constructor(root: HTMLElement) {
@@ -35,9 +39,10 @@ export class App {
     this.hud.onAction = (a, e) => this.act(a, e);
     this.hud.onItem = (slot, e) => this.useItem(slot, e);
     this.stage.onFrame = (dt) => this.frame(dt);
-    void this.stage.player.setModel(PLAYER_MODEL);
+    const idle = characterById(this.lastCharacter).model;
+    void this.stage.player.setModel(idle);
     void this.stage.enemy.setModel("character-female-b");
-    void this.stage.scenery.rebuild(Date.now(), [PLAYER_MODEL, "character-female-b"], this.compact());
+    void this.stage.scenery.rebuild(Date.now(), [idle, "character-female-b"], this.compact());
     this.applyLang();
     window.addEventListener("keydown", (e) => this.key(e));
     this.showTitle();
@@ -85,10 +90,12 @@ export class App {
     this.battle = null;
     this.hud.show(false);
     this.stage.setFever(false);
+    this.stage.player.setSilhouette(false);
+    void this.stage.player.setModel(this.character.model);
     this.screens.title(
-      this.best,
+      loadBest(),
       loadClear(),
-      () => void this.unlockThen(() => this.startRun()),
+      () => void this.unlockThen(() => this.showSelect()),
       () => void this.unlockThen(() => this.screens.calibrate(this.clock, () => this.showTitle())),
       () => this.screens.howto(() => this.showTitle()),
       () => {
@@ -104,9 +111,56 @@ export class App {
     next();
   }
 
+  private unlockedIds(): string[] {
+    const best = loadBest();
+    const bought = loadBought();
+    return CHARACTERS.filter((c) => isUnlocked(c, best, bought)).map((c) => c.id);
+  }
+
+  /** Names of characters unlocked since the last check. */
+  private newUnlocks(): string[] {
+    const fresh = this.unlockedIds().filter((id) => !this.known.has(id));
+    for (const id of fresh) this.known.add(id);
+    return fresh.map((id) => t(`char_${id}` as Parameters<typeof t>[0]));
+  }
+
+  private showSelect(): void {
+    const bests = loadBests();
+    const start = Math.max(0, CHARACTERS.findIndex((c) => c.id === this.character.id));
+    this.screens.select(
+      CHARACTERS,
+      start,
+      (c) => this.known.has(c.id),
+      (c) => bests[c.id] ?? 0,
+      (c, open) => {
+        void this.stage.player.setModel(c.model);
+        this.stage.player.setSilhouette(!open);
+      },
+      (c) => {
+        this.character = c;
+        this.lastCharacter = c.id;
+        saveLastCharacter(c.id);
+        this.stage.player.setSilhouette(false);
+        this.startRun();
+      },
+      () => this.showTitle(),
+    );
+  }
+
   private startRun(): void {
-    this.run = new Run();
+    this.run = new Run(undefined, this.character);
+    this.run.onPurchase = (item) => recordBought(item.id);
     this.showIntro();
+  }
+
+  private openShop(run: Run): void {
+    this.hud.show(false);
+    this.screens.shop(
+      run,
+      () => this.showIntro(),
+      (ok) => (ok ? this.clock.synth.coin() : this.clock.synth.ui()),
+      () => this.newUnlocks().map((n) => t("unlockedNew", n)).join("　"),
+    );
   }
 
   private showIntro(): void {
@@ -114,9 +168,9 @@ export class App {
     this.battle = null;
     this.clock.stop();
     this.stage.setEnemyColor(run.enemy.color);
-    void this.stage.player.setModel(PLAYER_MODEL);
+    void this.stage.player.setModel(run.character.model);
     void this.stage.enemy.setModel(run.enemy.model);
-    void this.stage.scenery.rebuild(run.rng.int(0, 2 ** 30), [PLAYER_MODEL, run.enemy.model], this.compact());
+    void this.stage.scenery.rebuild(run.rng.int(0, 2 ** 30), [run.character.model, run.enemy.model], this.compact());
     this.stage.setFever(false);
     this.hud.show(false);
     this.screens.intro(run, () => this.beginBattle());
@@ -339,28 +393,18 @@ export class App {
     if (won) {
       this.clock.synth.win();
       this.clock.synth.coin();
-      this.screens.victory(gold, () => {
-        this.hud.show(false);
-        this.screens.shop(run, () => this.showIntro(), (ok) => (ok ? this.clock.synth.coin() : this.clock.synth.ui()));
-      });
+      this.screens.victory(gold, () => this.openShop(run));
       return;
     }
     this.clock.synth.lose();
-    const newBest = this.updateBest(run.wins);
-    this.screens.gameOver(run.wins, newBest, () => this.startRun(), () => this.showTitle());
-  }
-
-  private updateBest(wins: number): boolean {
-    if (wins <= this.best) return false;
-    this.best = wins;
-    saveBest(wins);
-    return true;
+    const newBest = saveBestFor(run.character.id, run.wins);
+    this.screens.gameOver(run.wins, newBest, this.newUnlocks(), () => this.startRun(), () => this.showTitle());
   }
 
   /** The goal fight is won: confetti, then the choice to stop here or keep going endlessly. */
   private celebrate(run: Run): void {
     const record = recordClear();
-    this.updateBest(run.wins);
+    saveBestFor(run.character.id, run.wins);
     this.hud.show(false);
     this.stage.celebrate();
     this.clock.synth.win();
@@ -368,10 +412,11 @@ export class App {
     window.setTimeout(() => {
       this.screens.cleared(
         record,
+        this.newUnlocks(),
         () => this.showTitle(),
         () => {
           run.endless = true;
-          this.screens.shop(run, () => this.showIntro(), (ok) => (ok ? this.clock.synth.coin() : this.clock.synth.ui()));
+          this.openShop(run);
         },
       );
     }, CELEBRATION_MS);

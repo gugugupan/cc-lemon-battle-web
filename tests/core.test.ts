@@ -197,9 +197,9 @@ describe("run", () => {
   it("gives enemies more relics, from stronger tiers, as the run goes on", () => {
     const rng = new Rng(3);
     expect(enemyFor(1, rng).relics.length).toBe(0);
-    expect(enemyFor(3, rng).relics.length).toBe(0);
-    expect(enemyFor(4, rng).relics.length).toBe(1);
-    expect(enemyFor(19, rng).relics.length).toBe(6);
+    expect(enemyFor(5, rng).relics.length).toBe(0);
+    expect(enemyFor(6, rng).relics.length).toBe(1);
+    expect(enemyFor(26, rng).relics.length).toBe(6);
     for (let i = 0; i < 50; i++) {
       for (const r of enemyFor(5, rng).relics) expect(r.tier).toBe(1);
       for (const r of enemyFor(9, rng).relics) expect(r.tier).toBeLessThanOrEqual(2);
@@ -227,7 +227,7 @@ describe("run", () => {
 
   it("pays out, heals and restocks after a win", () => {
     const run = new Run(1);
-    run.finishBattle(true, 3);
+    run.finishBattle(true, 2);
     expect(run.round).toBe(2);
     expect(run.hp).toBe(4);
     expect(run.gold).toBeGreaterThan(20);

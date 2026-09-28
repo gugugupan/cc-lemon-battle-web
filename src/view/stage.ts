@@ -88,6 +88,8 @@ class FighterModel {
   private aura: THREE.Mesh;
   private rig: THREE.Object3D | null = null;
   private rigMaterials: THREE.MeshStandardMaterial[] = [];
+  private rigColors: THREE.Color[] = [];
+  private silhouette = false;
   private mixer: THREE.AnimationMixer | null = null;
   private clips = new Map<string, THREE.AnimationClip>();
   private idle: THREE.AnimationAction | null = null;
@@ -166,6 +168,8 @@ class FighterModel {
       mesh.material = mat;
       this.rigMaterials.push(mat);
     });
+    this.rigColors = this.rigMaterials.map((m) => m.color.clone());
+    this.setSilhouette(this.silhouette);
     const box = new THREE.Box3().setFromObject(rig);
     rig.scale.setScalar(MODEL_HEIGHT / Math.max(0.01, box.max.y - box.min.y));
     rig.rotation.y = this.side === "player" ? Math.PI / 2 - FACE_CAMERA : -Math.PI / 2 + FACE_CAMERA;
@@ -178,6 +182,12 @@ class FighterModel {
       if (e.action === this.current && this.current.loop === THREE.LoopOnce && this.current.clampWhenFinished === false) this.backToIdle();
     });
     this.reset();
+  }
+
+  /** Draws the character as a dark shape (a locked character on the select screen). */
+  setSilhouette(on: boolean): void {
+    this.silhouette = on;
+    this.rigMaterials.forEach((m, i) => (on ? m.color.setRGB(0.12, 0.13, 0.2) : m.color.copy(this.rigColors[i])));
   }
 
   /** Back to the idle loop, e.g. at the start of a fight after a win or loss pose. */

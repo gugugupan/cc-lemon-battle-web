@@ -1,14 +1,13 @@
 import { DEFAULT_AI } from "./ai";
+import { type Character, CHARACTERS, startItems, startRelics } from "./characters";
 import type { EnemySpec, Loadout } from "./battle";
-import { type Consumable, CONSUMABLES, ENEMY_RELICS, type Item, itemById, type Relic, RELICS } from "./items";
+import { type Consumable, CONSUMABLES, ENEMY_RELICS, type Item, type Relic, RELICS } from "./items";
 import { Rng } from "./rng";
 
-export const START_HP = 5;
-export const START_GOLD = 20;
 export const SLOTS = 4;
 /** Winning this many fights clears the game; the run can then go on as endless mode. */
 export const GOAL_ROUNDS = 20;
-export const VICTORY_HEAL = 1;
+export const VICTORY_HEAL = 2;
 export const ENEMY_NAME_COUNT = 12;
 export const MAX_ENEMY_RELICS = 6;
 /** Tell lines per action, ordered from blunt to subtle. */
@@ -18,11 +17,10 @@ export const TELL_LINES = 5;
 export function tellVariety(n: number): number {
   return Math.min(TELL_LINES, 1 + Math.floor((n - 1) / 2));
 }
-export const PLAYER_MODEL = "character-male-a";
 /** Which models can play each enemy name (index = name number), so タカシ isn't drawn as a girl. */
 const NAME_BODIES: ("male" | "female" | "any")[] = ["male", "male", "female", "female", "any", "male", "female", "any", "female", "male", "male", "any"];
 const MODELS = {
-  male: ["character-male-b", "character-male-c", "character-male-d", "character-male-e", "character-male-f"],
+  male: ["character-male-a", "character-male-b", "character-male-c", "character-male-d", "character-male-e", "character-male-f"],
   female: ["character-female-a", "character-female-b", "character-female-c", "character-female-d", "character-female-e", "character-female-f"],
 };
 export const RANK_COUNT = 5;
@@ -46,29 +44,29 @@ export interface StockEntry {
 
 /**
  * Enemy for the n-th fight (1-based). Everything ramps with n: more HP, faster tempo, a sharper
- * and more aggressive brain, fewer tells, more energy, and a relic every third fight from the
- * fourth on (up to six), drawn from stronger tiers as the run goes.
+ * and more aggressive brain, fewer tells, more energy, and a relic from the sixth fight on (one
+ * more every fourth fight, up to six), drawn from stronger tiers as the run goes.
  */
-export function enemyFor(n: number, rng: Rng): EnemySpec {
+export function enemyFor(n: number, rng: Rng, playerModel = ""): EnemySpec {
   const k = n - 1;
-  const relicCount = Math.min(MAX_ENEMY_RELICS, Math.floor(k / 3));
+  const relicCount = Math.min(MAX_ENEMY_RELICS, Math.max(0, Math.floor((k - 1) / 4)));
   const tier = n >= 10 ? 3 : n >= 6 ? 2 : 1;
   const nameIndex = rng.int(0, ENEMY_NAME_COUNT - 1);
   const body = NAME_BODIES[nameIndex];
   return {
     nameIndex,
-    model: rng.pick(body === "any" ? [...MODELS.male, ...MODELS.female] : MODELS[body]),
+    model: rng.pick((body === "any" ? [...MODELS.male, ...MODELS.female] : MODELS[body]).filter((m) => m !== playerModel)),
     rank: Math.min(RANK_COUNT - 1, Math.floor(k / 3)),
     color: rng.pick(ENEMY_COLORS),
-    maxHp: Math.min(9, 3 + Math.floor(k / 4)),
+    maxHp: Math.min(9, 3 + Math.floor(k / 5)),
     maxEnergy: n >= 10 ? 4 : 3,
     startEnergy: n >= 12 ? 2 : n >= 6 ? 1 : 0,
     tellChance: Math.max(0.25, 0.5 - 0.015 * k),
     tellAccuracy: Math.max(0.6, 0.8 - 0.015 * k),
     ai: {
       ...DEFAULT_AI,
-      aggression: Math.min(1.8, 1.0 + 0.08 * k),
-      readSkill: Math.min(1.3, 0.3 + 0.06 * k),
+      aggression: Math.min(1.8, 1.0 + 0.05 * k),
+      readSkill: Math.min(1.3, 0.3 + 0.04 * k),
       caution: 0.8,
       randomness: Math.max(0.05, 0.35 - 0.02 * k),
     },
@@ -79,21 +77,28 @@ export function enemyFor(n: number, rng: Rng): EnemySpec {
 
 export class Run {
   readonly rng: Rng;
+  readonly character: Character;
   round = 1;
-  hp = START_HP;
-  maxHp = START_HP;
-  gold = START_GOLD;
-  relics: Relic[] = [];
+  hp: number;
+  maxHp: number;
+  gold: number;
+  relics: Relic[];
   slots: (Consumable | null)[] = new Array(SLOTS).fill(null);
   stock: StockEntry[] = [];
   enemy: EnemySpec;
   /** Set once the player chooses to keep going after the goal. */
   endless = false;
+  /** Called after every successful purchase (the app uses it for purchase-based unlocks). */
+  onPurchase: (item: Item) => void = () => {};
 
-  constructor(seed?: number) {
+  constructor(seed?: number, character: Character = CHARACTERS[0]) {
     this.rng = new Rng(seed);
-    this.slots[0] = itemById("bandage") as Consumable;
-    this.enemy = enemyFor(this.round, this.rng);
+    this.character = character;
+    this.hp = this.maxHp = character.hp;
+    this.gold = character.gold;
+    this.relics = startRelics(character);
+    startItems(character).forEach((item, i) => (this.slots[i] = item));
+    this.enemy = enemyFor(this.round, this.rng, character.model);
   }
 
   get wins(): number {
@@ -121,7 +126,7 @@ export class Run {
     this.gold += gold;
     this.hp = Math.min(this.maxHp, this.hp + VICTORY_HEAL);
     this.round++;
-    this.enemy = enemyFor(this.round, this.rng);
+    this.enemy = enemyFor(this.round, this.rng, this.character.model);
     this.rollShop();
     return gold;
   }
@@ -149,6 +154,7 @@ export class Run {
     }
     this.gold -= entry.item.price;
     entry.sold = true;
+    this.onPurchase(entry.item);
     return "ok";
   }
 
