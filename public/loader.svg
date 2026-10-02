@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" width="240" height="160" role="img" aria-label="Loading">
+<style>
+.bar { transform-box: fill-box; transform-origin: 50% 50%; animation: pull 1.8s ease-in-out infinite; }
+.stalk { transform-box: fill-box; transform-origin: 50% 0; animation: stalk 1.8s ease-in infinite; }
+.drop { animation: drop 1.8s ease-in infinite; }
+.d2 .stalk, .d2 .drop { animation-delay: 0.6s; }
+.d3 .stalk, .d3 .drop { animation-delay: 1.2s; }
+.splash { transform-box: fill-box; transform-origin: 50% 50%; animation: splash 1.8s ease-out infinite; }
+.d2 .splash { animation-delay: 0.6s; }
+.d3 .splash { animation-delay: 1.2s; }
+@keyframes pull {
+  0%, 100% { transform: scale(1, 1); }
+  50% { transform: scale(0.95, 1.1); }
+}
+@keyframes stalk {
+  0% { transform: scaleY(0); }
+  45% { transform: scaleY(1); }
+  58% { transform: scaleY(0.25); }
+  100% { transform: scaleY(0); }
+}
+@keyframes drop {
+  0% { transform: translate(0, 0) scale(0.2); opacity: 1; }
+  45% { transform: translate(0, 20px) scale(1); opacity: 1; }
+  80% { transform: translate(0, 62px) scale(0.9, 1.1); opacity: 1; }
+  81%, 100% { transform: translate(0, 62px) scale(0); opacity: 0; }
+}
+@keyframes splash {
+  0%, 79% { transform: scale(0, 0); opacity: 0; }
+  82% { transform: scale(0.6, 0.6); opacity: 1; }
+  100% { transform: scale(1.4, 1); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bar, .stalk, .drop, .splash { animation-duration: 3.6s; }
+}
+</style>
+<path fill="#A8351F" d="M44 132 C44 150 64 156 120 156 C176 156 196 150 196 132 Z"/>
+<rect x="34" y="128" width="20" height="10" rx="5" fill="#A8351F"/>
+<rect x="186" y="128" width="20" height="10" rx="5" fill="#A8351F"/>
+<ellipse cx="120" cy="132" rx="78" ry="12" fill="#C9472D"/>
+<ellipse cx="120" cy="131" rx="66" ry="8" fill="#F5B935"/>
+<ellipse cx="96" cy="130" rx="14" ry="3" fill="#E9A12A" opacity="0.7"/>
+<ellipse cx="150" cy="132" rx="10" ry="2.5" fill="#E9A12A" opacity="0.7"/>
+<g class="bar">
+  <path fill="#F5B935" d="M20 44 C60 38 90 54 120 48 C150 42 180 40 220 44 L220 60 C180 58 150 62 120 64 C90 66 60 60 20 60 Z"/>
+  <path d="M32 47 C62 43 90 56 118 51" fill="none" stroke="#FFE08A" stroke-width="4" stroke-linecap="round"/>
+</g>
+<g transform="translate(72 58)" class="d1">
+  <rect class="stalk" x="-5" y="-6" width="10" height="26" rx="5" fill="#F5B935"/>
+  <path class="drop" fill="#F5B935" d="M0 -8 C4 -2 7 2 7 6 A7 7 0 0 1 -7 6 C-7 2 -4 -2 0 -8 Z"/>
+  <ellipse class="splash" cx="0" cy="73" rx="12" ry="3" fill="#FFE08A"/>
+</g>
+<g transform="translate(120 62)" class="d2">
+  <rect class="stalk" x="-5" y="-6" width="10" height="26" rx="5" fill="#F5B935"/>
+  <path class="drop" fill="#F5B935" d="M0 -8 C4 -2 7 2 7 6 A7 7 0 0 1 -7 6 C-7 2 -4 -2 0 -8 Z"/>
+  <ellipse class="splash" cx="0" cy="69" rx="12" ry="3" fill="#FFE08A"/>
+</g>
+<g transform="translate(168 58)" class="d3">
+  <rect class="stalk" x="-5" y="-6" width="10" height="26" rx="5" fill="#F5B935"/>
+  <path class="drop" fill="#F5B935" d="M0 -8 C4 -2 7 2 7 6 A7 7 0 0 1 -7 6 C-7 2 -4 -2 0 -8 Z"/>
+  <ellipse class="splash" cx="0" cy="73" rx="12" ry="3" fill="#FFE08A"/>
+</g>
+</svg>

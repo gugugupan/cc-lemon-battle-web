@@ -24,26 +24,20 @@
         opacity: 0;
         pointer-events: none;
       }
-      #splash .lemon {
-        font-size: 72px;
+      #splash .loader {
         display: block;
-        text-align: center;
-        animation: splash-bob 0.9s ease-in-out infinite;
+        margin: 0 auto;
       }
       #splash p {
         margin: 8px 0 0;
         font-weight: 900;
         letter-spacing: 0.1em;
-      }
-      @keyframes splash-bob {
-        50% {
-          transform: translateY(-12px) rotate(-10deg);
-        }
+        text-align: center;
       }
     </style>
   </head>
   <body>
-    <div id="splash"><div><span class="lemon">🍋</span><p>C・C・レ・モン…</p></div></div>
+    <div id="splash"><div><img class="loader" src="/loader.svg" width="200" height="133" alt="" /><p>C・C・レ・モン…</p></div></div>
     <div id="app"><canvas id="stage"></canvas></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
