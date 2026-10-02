@@ -2,6 +2,7 @@ import { DEFAULT_AI, type Personality, PERSONALITY_TUNING } from "./ai";
 import { type Character, CHARACTERS, startItems, startRelics } from "./characters";
 import type { BattleEvent, EnemySpec, Loadout } from "./battle";
 import { type Consumable, CONSUMABLES, ENEMY_RELICS, type Item, type Relic, RELICS } from "./items";
+import { EVENT_CHANCE, type EventId, type EventOutcome, EVENTS, eventPool } from "./events";
 import { Rng } from "./rng";
 
 export const SLOTS = 4;
@@ -177,6 +178,8 @@ export class Run {
   relicPick: Relic[] = [];
   /** Whether this shop visit's chest has been bought. */
   chestSold = false;
+  /** An event waiting before the shop, or null. */
+  event: EventId | null = null;
   readonly stats: RunStats = { bestCombo: 0, judged: 0, perfects: 0, damageDealt: 0, damageTaken: 0, fevers: 0 };
   /** Called after every purchase and every relic taken from a chest (for item-based unlocks). */
   onPurchase: (item: Item) => void = () => {};
@@ -247,19 +250,42 @@ export class Run {
   finishBattle(won: boolean, hpLeft: number): number {
     this.hp = Math.max(0, Math.min(this.maxHp, hpLeft));
     if (!won) return 0;
-    const gold = this.goldFor(this.round) * (this.enemy.elite ? 2 : 1);
-    this.relicPick = this.enemy.elite ? this.rollChest() : [];
+    const wasElite = this.enemy.elite;
+    const gold = this.goldFor(this.round) * (wasElite && !this.enemy.challenger ? 2 : 1);
+    this.relicPick = wasElite ? this.rollChest() : [];
     this.gold += gold;
     this.hp = Math.min(this.maxHp, this.hp + VICTORY_HEAL);
     this.round++;
     this.enemy = enemyFor(this.round, this.rng, this.character.model);
     this.rollShop();
+    this.event = !wasElite && this.rng.chance(EVENT_CHANCE) ? this.rng.pick(eventPool(this.enemy.elite)) : null;
     return gold;
   }
 
   rollShop(): void {
     this.stock = this.rng.shuffle(CONSUMABLES).slice(0, 3).map((item) => ({ item, sold: false }));
     this.chestSold = false;
+  }
+
+  /** Takes choice `index` of the waiting event; null when there's no event or the choice is blocked. */
+  chooseEvent(index: number): EventOutcome | null {
+    if (!this.event) return null;
+    const choice = EVENTS[this.event][index];
+    if (!choice || choice.blocked(this)) return null;
+    this.event = null;
+    return choice.apply(this, this.rng);
+  }
+
+  /** The challenger event: the next fight becomes an elite (tougher; winning opens a free chest). */
+  makeNextElite(): void {
+    const e = this.enemy;
+    if (e.elite) return;
+    this.enemy = { ...e, elite: true, challenger: true, maxHp: e.maxHp + (this.round >= 10 ? 3 : 2), bpm: e.bpm + 6, ai: { ...e.ai, aggression: e.ai.aggression * 1.05 } };
+  }
+
+  /** Three unowned relics, for a chest. */
+  offerChest(): Relic[] {
+    return this.rollChest();
   }
 
   private rollChest(): Relic[] {

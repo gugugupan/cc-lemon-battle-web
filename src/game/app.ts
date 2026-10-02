@@ -749,10 +749,10 @@ export class App {
       this.clock.synth.coin();
       const elite = run.relicPick.length > 0;
       this.screens.victory(gold, elite, () => {
-        if (!elite) return this.openShop(run);
+        if (!elite) return this.afterWin(run);
         this.screens.chest(run.relicPick, t("pickTitle"), (i) => {
           run.takePick(i);
-          this.openShop(run);
+          this.afterWin(run);
         });
       });
       return;
@@ -760,6 +760,23 @@ export class App {
     this.clock.synth.lose();
     const newBest = saveBestFor(run.character.id, run.wins);
     this.screens.gameOver(run, newBest, this.newUnlocks(), () => this.startRun(), () => this.showTitle());
+  }
+
+  /** A waiting event comes before the shop; a choice that opens a chest shows it first. */
+  private afterWin(run: Run): void {
+    if (!run.event) return this.openShop(run);
+    this.screens.event(
+      run.event,
+      run,
+      (i) => run.chooseEvent(i),
+      (outcome) => {
+        if (!outcome.chest || !run.relicPick.length) return this.openShop(run);
+        this.screens.chest(run.relicPick, t("chestTitle"), (i) => {
+          run.takePick(i);
+          this.openShop(run);
+        });
+      },
+    );
   }
 
   /** The goal fight is won: confetti, then the choice to stop here or keep going endlessly. */

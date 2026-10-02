@@ -246,6 +246,74 @@ i.lemon.empty {
   color: #f08c00;
 }
 
+.event-panel {
+  width: min(480px, 100%);
+  text-align: center;
+}
+
+.event-icon {
+  font-size: 56px;
+  animation: bob 1.8s ease-in-out infinite;
+}
+
+.event-text {
+  font-weight: 800;
+  line-height: 1.6;
+}
+
+.event-gain {
+  font-weight: 900;
+  color: #2f9e44;
+}
+
+.event-status {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 12px;
+}
+
+.event-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.event-choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 10px;
+  border: none;
+  border-radius: 16px;
+  background: #fff;
+  padding: 12px 16px;
+  font-weight: 900;
+  text-align: left;
+  box-shadow: 0 4px 0 var(--line);
+}
+
+.event-choice:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.event-choice:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.event-choice small {
+  flex-basis: 100%;
+  color: #e03131;
+  font-size: 12px;
+}
+
+.event-choice .price {
+  background: var(--lemon);
+}
+
 .run-summary {
   margin-top: 14px;
   text-align: left;

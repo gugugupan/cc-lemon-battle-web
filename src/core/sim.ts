@@ -183,11 +183,36 @@ export function simulateRun(character: Character, player: PlayerModel, seed: num
     run.finishBattle(result.won, result.hpLeft);
     if (!result.won) break;
     if (run.relicPick.length) run.takePick(choose(run.relicPick));
+    if (run.event) {
+      const outcome = run.chooseEvent(eventChoice(run));
+      if (outcome?.chest) run.takePick(choose(run.relicPick));
+    }
     while (run.hp < run.maxHp - 1 && run.rest() === "ok");
     if (run.buyChest() === "ok") run.takePick(choose(run.relicPick));
     for (let i = 0; i < run.stock.length; i++) run.buy(i);
   }
   return run.wins;
+}
+
+/** A plain policy for events: heal when hurt, take free things, skip risky trades. */
+function eventChoice(run: Run): number {
+  const hurt = run.hp < run.maxHp;
+  switch (run.event) {
+    case "vending":
+      return hurt && run.gold >= 15 ? 0 : 2;
+    case "dagashi":
+      return run.gold >= 15 && run.slots.includes(null) ? 0 : 1;
+    case "homework":
+      return run.hp > 3 ? 1 : 0;
+    case "infirmary":
+      return hurt || !run.slots.includes(null) ? 0 : 1;
+    case "transfer":
+      return run.hp >= run.maxHp - 1 ? 0 : 1;
+    case "shrine":
+      return run.maxHp > 5 ? 0 : 1;
+    default:
+      return 0;
+  }
 }
 
 function bestOf(offer: readonly Relic[], ranking: readonly string[]): number {

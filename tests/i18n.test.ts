@@ -6,6 +6,7 @@ vi.stubGlobal("localStorage", { getItem: () => null, setItem: () => {} });
 const { hasKey } = await import("../src/i18n");
 const { ALL_ITEMS, CONSUMABLES, RELICS, SERIES } = await import("../src/core/items");
 const { ENEMY_NAME_COUNT, RANK_COUNT, TELL_LINES } = await import("../src/core/run");
+const { EVENT_IDS, EVENTS } = await import("../src/core/events");
 
 it("has text for every item, enemy name and rank", () => {
   const missing: string[] = [];
@@ -19,6 +20,10 @@ it("has text for every item, enemy name and rank", () => {
   for (const a of ["attack", "guard", "charge", "special"]) {
     if (!hasKey(`action_${a}`)) missing.push(`action_${a}`);
     for (let i = 0; i < TELL_LINES; i++) if (!hasKey(`tell_${a}_${i}`)) missing.push(`tell_${a}_${i}`);
+  }
+  for (const id of EVENT_IDS) {
+    for (const key of [`ev_${id}`, `ev_${id}_text`]) if (!hasKey(key)) missing.push(key);
+    for (const c of EVENTS[id]) if (!hasKey(c.label)) missing.push(c.label);
   }
   expect(missing).toEqual([]);
 });

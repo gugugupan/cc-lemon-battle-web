@@ -29,6 +29,8 @@ export interface EnemySpec {
   personality: Personality;
   /** Every fifth fight: tougher, with a relic pick as the reward. */
   elite: boolean;
+  /** A challenger from an event: an elite whose win pays the chest but not double gold. */
+  challenger?: boolean;
   /** Extra energy this enemy gains per charge. */
   chargeBonus: number;
   /** Character model file name (without extension) under public/models. */

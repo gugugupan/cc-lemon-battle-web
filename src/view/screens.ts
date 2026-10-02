@@ -3,6 +3,7 @@ import { type EnemySpec, enemyStats, fightBpm } from "../core/battle";
 import type { Item, Relic } from "../core/items";
 import { type Character, startItems, startRelics } from "../core/characters";
 import { GOAL_ROUNDS, REST_HEAL, REST_PRICE, type Run, sellPrice } from "../core/run";
+import { type EventId, type EventOutcome, EVENTS } from "../core/events";
 import type { ClearRecord, Volume } from "../game/progress";
 import { currentLang, t } from "../i18n";
 import { itemDesc, itemName, pips, seriesLabel } from "./hud";
@@ -65,6 +66,8 @@ function volumeSliders(current: Volume, onChange: (v: Volume) => void, preview: 
   });
   return wrap;
 }
+
+const EVENT_ICONS: Record<EventId, string> = { vending: "🥤", dagashi: "🍬", homework: "📒", infirmary: "🛏️", transfer: "🌀", shrine: "⛩️" };
 
 const PERSONALITY_ICONS: Record<EnemySpec["personality"], string> = { brawler: "🔥", guardian: "🛡️", charger: "⚡", reader: "🧠", wild: "🎲" };
 
@@ -461,6 +464,46 @@ export class Screens {
     });
     later(1250, () => panel.classList.add("dealt"));
     later(1250 + 160 * relics.length + 450, reveal);
+  }
+
+  /** A between-fights event: pick a choice, see what happened, then go on. */
+  event(id: EventId, run: Run, onChoose: (index: number) => EventOutcome | null, onDone: (outcome: EventOutcome) => void): void {
+    const choices = EVENTS[id]
+      .map((c, i) => {
+        const blocked = c.blocked(run);
+        const cost = c.cost ? `<span class="price">${t("buy", c.cost)}</span>` : "";
+        return `<button class="event-choice" data-choice="${i}" ${blocked ? "disabled" : ""}><span>${escape(t(c.label as Parameters<typeof t>[0]))}</span>${cost}${blocked ? `<small>${escape(t(blocked as Parameters<typeof t>[0]))}</small>` : ""}</button>`;
+      })
+      .join("");
+    const panel = h(`<div class="panel event-panel">
+      <div class="event-icon">${EVENT_ICONS[id]}</div>
+      <h2>${escape(t(`ev_${id}` as Parameters<typeof t>[0]))}</h2>
+      <p class="event-text">${escape(t(`ev_${id}_text` as Parameters<typeof t>[0]))}</p>
+      <div class="event-status"><span class="hearts">${pips(run.hp, run.maxHp, "heart", "heart empty")}</span><span class="gold">🪙 ${t("gold", run.gold)}</span></div>
+      <div class="event-choices">${choices}</div>
+    </div>`);
+    panel.querySelectorAll<HTMLButtonElement>("[data-choice]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const outcome = onChoose(Number(b.dataset.choice));
+        if (!outcome) return;
+        this.sfx();
+        const gained = outcome.item ? t("ev_gained", escape(itemName(outcome.item))) : "";
+        const result = h(`<div class="panel event-panel">
+          <div class="event-icon">${EVENT_ICONS[id]}</div>
+          <p class="event-text">${escape(t(outcome.result as Parameters<typeof t>[0]))}</p>
+          ${gained ? `<p class="event-gain">${gained}</p>` : ""}
+          <div class="event-status"><span class="hearts">${pips(run.hp, run.maxHp, "heart", "heart empty")}</span><span class="gold">🪙 ${t("gold", run.gold)}</span></div>
+        </div>`);
+        this.show(result, [{ label: t("next"), onClick: () => onDone(outcome), primary: true }], "dim");
+      }),
+    );
+    this.show(panel, [], "dim");
+    this.keyHandler = (e) => {
+      const n = Number(e.key);
+      const button = panel.querySelector<HTMLButtonElement>(`[data-choice="${n - 1}"]`);
+      if (button && !button.disabled) button.click();
+      return true;
+    };
   }
 
   victory(gold: number, elite: boolean, onNext: () => void): void {
