@@ -44,6 +44,27 @@ export function personalityName(spec: EnemySpec): string {
   return t(`personality_${spec.personality}` as Parameters<typeof t>[0]);
 }
 
+/** Music and sound-effect sliders that apply as they move. */
+function volumeSliders(current: Volume, onChange: (v: Volume) => void, preview: () => void): HTMLElement {
+  const value = { ...current };
+  const row = (key: keyof Volume) => `<label class="vol-row"><span class="vol-name">${t(key === "music" ? "volMusic" : "volSfx")}</span>
+    <input type="range" min="0" max="100" step="5" value="${Math.round(value[key] * 100)}" data-vol="${key}">
+    <span class="vol-value">${Math.round(value[key] * 100)}%</span></label>`;
+  const wrap = h(`<div class="vol-sliders">${row("music")}${row("sfx")}</div>`);
+  wrap.querySelectorAll<HTMLInputElement>("[data-vol]").forEach((input) => {
+    const key = input.dataset.vol as keyof Volume;
+    const label = input.parentElement!.querySelector(".vol-value")!;
+    input.addEventListener("input", () => {
+      value[key] = Number(input.value) / 100;
+      label.textContent = value[key] === 0 ? t("volOff") : `${input.value}%`;
+      onChange({ ...value });
+    });
+    if (key === "sfx") input.addEventListener("change", preview);
+    if (value[key] === 0) label.textContent = t("volOff");
+  });
+  return wrap;
+}
+
 const PERSONALITY_ICONS: Record<EnemySpec["personality"], string> = { brawler: "🔥", guardian: "🛡️", charger: "⚡", reader: "🧠", wild: "🎲" };
 
 /** Full-screen overlay panels. Enter presses the panel's primary button. */
@@ -213,22 +234,8 @@ export class Screens {
 
   /** Music and sound-effect sliders; changes apply (and are saved) as they move. */
   volume(current: Volume, onChange: (v: Volume) => void, preview: () => void, onBack: () => void): void {
-    const value = { ...current };
-    const row = (key: keyof Volume) => `<label class="vol-row"><span class="vol-name">${t(key === "music" ? "volMusic" : "volSfx")}</span>
-      <input type="range" min="0" max="100" step="5" value="${Math.round(value[key] * 100)}" data-vol="${key}">
-      <span class="vol-value">${Math.round(value[key] * 100)}%</span></label>`;
-    const panel = h(`<div class="panel vol-panel"><h2>${t("volume")}</h2>${row("music")}${row("sfx")}<p class="muted small">${t("volHint")}</p></div>`);
-    panel.querySelectorAll<HTMLInputElement>("[data-vol]").forEach((input) => {
-      const key = input.dataset.vol as keyof Volume;
-      const label = input.parentElement!.querySelector(".vol-value")!;
-      input.addEventListener("input", () => {
-        value[key] = Number(input.value) / 100;
-        label.textContent = value[key] === 0 ? t("volOff") : `${input.value}%`;
-        onChange({ ...value });
-      });
-      if (key === "sfx") input.addEventListener("change", preview);
-      if (value[key] === 0) label.textContent = t("volOff");
-    });
+    const panel = h(`<div class="panel vol-panel"><h2>${t("volume")}</h2><p class="muted small">${t("volHint")}</p></div>`);
+    panel.querySelector("h2")!.after(volumeSliders(current, onChange, preview));
     this.show(panel, [{ label: t("back"), onClick: onBack, primary: true }]);
     this.keyHandler = (e) => {
       if (e.key === "Escape") {
@@ -237,6 +244,53 @@ export class Screens {
       }
       return false;
     };
+  }
+
+  /** Mid-fight pause: resume, volume, or give up the run (asks twice). */
+  pause(current: Volume, onChange: (v: Volume) => void, onResume: () => void, onQuit: () => void): void {
+    const panel = h(`<div class="panel vol-panel pause-panel"><h2>⏸ ${t("paused")}</h2></div>`);
+    panel.append(volumeSliders(current, onChange, () => {}));
+    let armed = false;
+    this.show(panel, [
+      { label: t("resume"), onClick: onResume, primary: true },
+      {
+        label: t("quitRun"),
+        ghost: true,
+        onClick: () => {
+          if (armed) return onQuit();
+          armed = true;
+          const button = [...panel.querySelectorAll<HTMLButtonElement>(".btn")].pop()!;
+          button.textContent = t("quitConfirm");
+          button.classList.add("danger");
+        },
+      },
+    ], "dim");
+    this.keyHandler = (e) => {
+      if (e.key === "Escape" || e.key === "p" || e.key === "P") {
+        onResume();
+        return true;
+      }
+      return false;
+    };
+  }
+
+  /** 3・2・1 before a paused fight goes on; the beat is frozen meanwhile. */
+  countdown(onDone: () => void): void {
+    const panel = h(`<div class="countdown"></div>`);
+    this.show(panel, [], "countdown-overlay");
+    this.keyHandler = () => true;
+    let n = 3;
+    const tick = () => {
+      if (n === 0) return onDone();
+      panel.textContent = String(n);
+      panel.classList.remove("pop");
+      void panel.offsetWidth;
+      panel.classList.add("pop");
+      this.sfx();
+      n--;
+      window.setTimeout(tick, 600);
+    };
+    tick();
   }
 
   howto(onBack: () => void): void {

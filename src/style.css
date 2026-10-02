@@ -233,6 +233,50 @@ i.lemon.empty {
   gap: 6px;
 }
 
+.round-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pause-btn {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: var(--glass-strong);
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  padding: 0;
+}
+
+.countdown-overlay {
+  background: rgba(31, 42, 68, 0.28);
+}
+
+.countdown {
+  font-size: 120px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 6px 0 var(--lemon-deep), 0 0 40px rgba(255, 212, 59, 0.8);
+}
+
+.countdown.pop {
+  animation: countdown-pop 0.5s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+@keyframes countdown-pop {
+  from {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+.btn.danger {
+  color: #e03131;
+  border-color: #ffa8a8;
+}
+
 .round-badge {
   background: var(--ink);
   color: #fff;

@@ -69,6 +69,7 @@ export class Hud {
   onDialogue: () => void = () => {};
   /** The tutorial's exit button (same as Esc). */
   onExit: () => void = () => {};
+  onPause: () => void = () => {};
   private costOf: (action: ActionId) => number = (a) => ACTIONS[a].cost;
 
   private player: Side;
@@ -95,7 +96,15 @@ export class Hud {
     this.player = this.side("player");
     this.enemy = this.side("enemy");
     const center = el("div", "hud-center");
-    center.append(this.round, this.bpm);
+    const pause = el("button", "pause-btn", "⏸") as HTMLButtonElement;
+    pause.setAttribute("aria-label", t("paused"));
+    pause.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      this.onPause();
+    });
+    const badges = el("div", "round-row");
+    badges.append(this.round, pause);
+    center.append(badges, this.bpm);
     top.append(center, this.enemy.root);
 
     const bottom = el("div", "hud-bottom");

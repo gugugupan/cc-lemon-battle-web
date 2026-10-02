@@ -61,6 +61,7 @@ export class App {
   private known = new Set(this.unlockedIds());
   private tut: { index: number; line: number; tracker: TutorialTracker | null; fails: number; practicing: boolean; exitArmed: number } | null = null;
   private idle = 0;
+  private paused = false;
 
   constructor(root: HTMLElement) {
     const canvas = root.querySelector("canvas")!;
@@ -73,6 +74,8 @@ export class App {
     this.hud.onItem = (slot, e) => this.useItem(slot, e);
     this.hud.onDialogue = () => this.tut && !this.tut.practicing && this.advanceTutorial();
     this.hud.onExit = () => this.tut && this.exitTutorial();
+    this.hud.onPause = () => this.pause();
+    document.addEventListener("visibilitychange", () => document.hidden && this.pause());
     this.stage.onFrame = (dt) => this.frame(dt);
     this.applyVolume();
     const idle = characterById(this.lastCharacter).model;
@@ -110,6 +113,10 @@ export class App {
   private key(e: KeyboardEvent): void {
     if (e.repeat) return;
     if (this.screens.handleKey(e)) return;
+    if ((e.key === "p" || e.key === "P" || (e.key === "Escape" && !this.tut)) && this.canPause()) {
+      e.preventDefault();
+      return this.pause();
+    }
     if (this.tut) {
       if (e.key === "Escape") return this.exitTutorial();
       if (!this.tut.practicing && (e.key === "Enter" || e.key === " ")) {
@@ -434,6 +441,10 @@ export class App {
       this.hud.hint(t("tut_exit"), true);
       return;
     }
+    this.leaveTutorial();
+  }
+
+  private leaveTutorial(): void {
     this.tut = null;
     this.hud.dialogue(null);
     this.hud.hint(null);
@@ -554,6 +565,43 @@ export class App {
       if (this.music.playing) this.music.setBpmAt(beat, next);
       this.pendingTempo = { bar: bar + 1, bpm: next };
     }
+  }
+
+  private canPause(): boolean {
+    return !this.paused && !!this.battle && !this.battle.finished && this.clock.running && !this.screens.open;
+  }
+
+  /** Freezes the whole audio clock (beat, music, judging) and shows the pause panel. */
+  private pause(): void {
+    if (!this.canPause()) return;
+    this.paused = true;
+    void this.clock.ctx.suspend();
+    this.showPause();
+  }
+
+  private showPause(): void {
+    this.screens.pause(
+      this.volume,
+      (v) => {
+        this.volume = v;
+        saveVolume(v);
+        this.applyVolume();
+      },
+      () =>
+        this.screens.countdown(() => {
+          this.screens.hide();
+          this.paused = false;
+          void this.clock.ctx.resume();
+        }),
+      () => {
+        this.paused = false;
+        void this.clock.ctx.resume();
+        this.screens.hide();
+        if (this.tut) return this.leaveTutorial();
+        if (this.run) saveBestFor(this.run.character.id, this.run.wins);
+        this.showTitle();
+      },
+    );
   }
 
   private tellLine(action: ActionId): string {
