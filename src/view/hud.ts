@@ -88,6 +88,7 @@ export class Hud {
   private tellAt = { x: 0, y: 0 };
   private exitButton = el("button", "tut-exit hidden", "✕") as HTMLButtonElement;
   private beatPips = el("div", "pad-beat");
+  private beatFrame = el("div", "beat-frame");
 
   constructor(parent: HTMLElement) {
     const top = el("div", "hud-top");
@@ -95,11 +96,11 @@ export class Hud {
     this.enemy = this.side("enemy");
     const center = el("div", "hud-center");
     center.append(this.round, this.bpm);
-    top.append(this.player.root, center, this.enemy.root);
+    top.append(center, this.enemy.root);
 
     const bottom = el("div", "hud-bottom");
     const slotWrap = el("div", "slot-wrap");
-    slotWrap.append(this.slotsLabel, this.slots);
+    slotWrap.append(this.player.root, this.slotsLabel, this.slots);
     const padWrap = el("div", "pad");
     for (const action of ["special", "guard", "attack", "charge"] as ActionId[]) {
       const button = el("button", `pad-btn pad-${action}`);
@@ -112,7 +113,7 @@ export class Hud {
       padWrap.append(button);
       this.pad.set(action, button);
     }
-    this.beatPips.innerHTML = "<i></i><i></i><i></i><i></i>";
+    this.beatPips.innerHTML = "<i></i><i></i><i></i><i>🍋</i>";
     padWrap.append(this.beatPips);
     this.setCosts((a) => ACTIONS[a].cost);
     this.comboBar.append(el("div", "fill"));
@@ -128,7 +129,8 @@ export class Hud {
       e.preventDefault();
       this.onExit();
     });
-    this.root.append(top, bottom, this.bubble, this.hintBar, this.dialogueBox, this.exitButton, this.popups);
+    this.beatFrame.innerHTML = '<i class="edge top"></i><i class="edge right"></i><i class="edge bottom"></i><i class="edge left"></i>';
+    this.root.append(this.beatFrame, top, bottom, this.bubble, this.hintBar, this.dialogueBox, this.exitButton, this.popups);
     parent.append(this.root);
   }
 
@@ -168,7 +170,15 @@ export class Hud {
     const pad = this.beatPips.parentElement!;
     pad.classList.toggle("cue-ready", !rest && beatInBar === 2);
     pad.classList.remove("cue-now");
-    this.beatPips.querySelectorAll("i").forEach((pip, i) => pip.classList.toggle("on", !rest && i <= beatInBar));
+    this.beatPips.classList.toggle("rest", rest);
+    this.beatPips.querySelectorAll("i").forEach((pip, i) => pip.classList.toggle("on", i <= beatInBar));
+    this.beatFrame.classList.toggle("rest", rest);
+    this.beatFrame.querySelectorAll(".edge").forEach((edge, i) => edge.classList.toggle("on", i <= beatInBar));
+    this.beatFrame.classList.remove("mon");
+    if (beatInBar === 3 && !rest) {
+      void this.beatFrame.offsetWidth;
+      this.beatFrame.classList.add("mon");
+    }
     if (!rest && beatInBar === 3) {
       void pad.offsetWidth;
       pad.classList.add("cue-now");

@@ -105,6 +105,7 @@ button {
 }
 
 .fighter-card.enemy {
+  grid-column: 3;
   justify-self: end;
   text-align: right;
   border-right: 6px solid var(--accent, #ff8a80);
@@ -225,6 +226,7 @@ i.lemon.empty {
 }
 
 .hud-center {
+  grid-column: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -259,6 +261,12 @@ i.lemon.empty {
   grid-template-columns: 1fr auto 1fr;
   align-items: end;
   gap: 12px;
+}
+
+.slot-wrap .fighter-card {
+  margin-bottom: 10px;
+  width: fit-content;
+  min-width: 200px;
 }
 
 .hud-label {
@@ -1187,8 +1195,39 @@ i.lemon.empty {
   }
 
   .hud-center {
-    grid-column: 1 / -1;
-    grid-row: 2;
+    grid-column: 1;
+    grid-row: 1;
+    align-self: center;
+  }
+
+  .fighter-card.enemy {
+    grid-column: 2;
+  }
+
+  .slot-wrap .fighter-card {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 8px;
+    min-width: 0;
+    padding: 6px 10px;
+    margin-bottom: 8px;
+  }
+
+  .slot-wrap .fighter-head {
+    display: none;
+  }
+
+  .slot-wrap .fighter-card .hearts,
+  .slot-wrap .fighter-card .energy,
+  .slot-wrap .fighter-card .relic-row {
+    margin-top: 0;
+  }
+
+  .slot-wrap .relic-chip {
+    width: 24px;
+    height: 24px;
+    font-size: 14px;
   }
 
   .fighter-card {
@@ -1607,6 +1646,125 @@ i.lemon.empty {
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
+/* ---------- beat frame around the screen ---------- */
+
+.beat-frame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  --band: 34px;
+  --c: 61, 219, 176;
+}
+
+.hud.fever .beat-frame {
+  --c: 245, 183, 0;
+}
+
+.beat-frame .edge {
+  position: absolute;
+  opacity: 0;
+  transition: opacity 0.06s;
+}
+
+.beat-frame .edge::after {
+  content: "";
+  position: absolute;
+  background: rgb(var(--c));
+  border-radius: 99px;
+}
+
+.beat-frame .top,
+.beat-frame .bottom {
+  left: 0;
+  right: 0;
+  height: var(--band);
+}
+
+.beat-frame .left,
+.beat-frame .right {
+  top: 0;
+  bottom: 0;
+  width: var(--band);
+}
+
+.beat-frame .top {
+  top: 0;
+  background: linear-gradient(to bottom, rgba(var(--c), 0.75), transparent);
+}
+
+.beat-frame .bottom {
+  bottom: 0;
+  background: linear-gradient(to top, rgba(var(--c), 0.75), transparent);
+}
+
+.beat-frame .left {
+  left: 0;
+  background: linear-gradient(to right, rgba(var(--c), 0.75), transparent);
+}
+
+.beat-frame .right {
+  right: 0;
+  background: linear-gradient(to left, rgba(var(--c), 0.75), transparent);
+}
+
+.beat-frame .top::after,
+.beat-frame .bottom::after {
+  left: 0;
+  right: 0;
+  height: 6px;
+}
+
+.beat-frame .top::after {
+  top: 0;
+}
+
+.beat-frame .bottom::after {
+  bottom: 0;
+}
+
+.beat-frame .left::after,
+.beat-frame .right::after {
+  top: 0;
+  bottom: 0;
+  width: 6px;
+}
+
+.beat-frame .left::after {
+  left: 0;
+}
+
+.beat-frame .right::after {
+  right: 0;
+}
+
+.beat-frame .edge.on {
+  opacity: 1;
+}
+
+.beat-frame.mon {
+  --c: 255, 212, 59;
+  animation: frame-mon 0.4s ease-out;
+}
+
+.beat-frame.mon .edge {
+  opacity: 1;
+}
+
+.beat-frame.rest {
+  --c: 141, 143, 216;
+}
+
+.beat-frame.rest .edge.on {
+  opacity: 0.45;
+}
+
+@keyframes frame-mon {
+  from {
+    --band: 70px;
+    filter: brightness(1.25);
+  }
+}
+
 /* ---------- beat cue on the pad ---------- */
 
 .pad-beat {
@@ -1614,41 +1772,56 @@ i.lemon.empty {
   align-self: center;
   justify-self: center;
   display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  border-radius: 99px;
-  background: rgba(255, 255, 255, 0.55);
+  gap: 4px;
+  padding: 5px;
+  border-radius: 12px;
+  background: rgba(31, 42, 68, 0.72);
+  box-shadow: var(--shadow);
   pointer-events: none;
 }
 
 .pad-beat i {
   width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: rgba(31, 42, 68, 0.15);
-  box-shadow: inset 0 0 0 2px rgba(31, 42, 68, 0.25);
-  transition: background 0.08s, transform 0.08s;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.18);
+  display: grid;
+  place-items: center;
+  font-style: normal;
+  font-size: 13px;
+  transition: background 0.06s;
 }
 
 .pad-beat i:last-child {
-  width: 26px;
-  height: 26px;
-}
-
-.pad-beat.tut-focus {
-  animation: tut-pulse 0.9s ease-in-out infinite;
+  width: 28px;
+  filter: grayscale(1) opacity(0.5);
 }
 
 .pad-beat i.on {
   background: var(--mint);
-  box-shadow: inset 0 0 0 2px #12b886;
-  transform: scale(1.15);
 }
 
 .pad-beat i:last-child.on {
   background: var(--lemon);
-  box-shadow: inset 0 0 0 2px var(--lemon-deep), 0 0 12px var(--lemon);
+  filter: none;
+}
+
+.pad-beat.rest i.on {
+  background: #b197fc;
+}
+
+.pad.cue-now .pad-beat i:last-child {
+  animation: beat-lemon 0.35s cubic-bezier(0.2, 1.8, 0.4, 1);
+}
+
+@keyframes beat-lemon {
+  from {
+    transform: scale(1.35);
+  }
+}
+
+.pad-beat.tut-focus {
+  animation: tut-pulse 0.9s ease-in-out infinite;
 }
 
 .pad.cue-ready .pad-btn:not(:disabled) {
