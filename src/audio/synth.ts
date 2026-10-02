@@ -1,23 +1,24 @@
 import type { BarSound } from "./clock";
 
+const MASTER = 0.55;
+
 /** Every sound in the game is synthesized here; there are no audio files. */
 export class Synth {
   private master: GainNode;
   private noise: AudioBuffer;
-  muted = false;
 
   constructor(private ctx: AudioContext) {
     this.master = ctx.createGain();
-    this.master.gain.value = 0.55;
+    this.master.gain.value = MASTER;
     this.master.connect(ctx.destination);
     this.noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const data = this.noise.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
   }
 
-  setMuted(muted: boolean): void {
-    this.muted = muted;
-    this.master.gain.value = muted ? 0 : 0.55;
+  /** 0–1; 1 is the original full level. */
+  setVolume(v: number): void {
+    this.master.gain.value = MASTER * v;
   }
 
   /** One beat of the groove: kick on 1 and 3, hats between, a clap and bright ping on 「モン」. */

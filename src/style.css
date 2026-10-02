@@ -789,6 +789,30 @@ i.lemon.empty {
   font-weight: 800;
 }
 
+.vol-panel {
+  width: min(440px, 100%);
+}
+
+.vol-row {
+  display: grid;
+  grid-template-columns: 64px 1fr 48px;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0;
+  font-weight: 900;
+}
+
+.vol-row input {
+  width: 100%;
+  accent-color: var(--lemon-deep);
+}
+
+.vol-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
 .howto {
   font-weight: 700;
 }

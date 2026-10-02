@@ -308,7 +308,7 @@ npm run build      # 静态网站输出到 dist/
 - 舞台（`src/view/stage.ts`）：渐变天空、圆形舞台、舞台外圈在第 4 拍闪光（空中的节拍球已拿掉，节拍只看十字键中间的 4 个点），手势牌相撞、粒子、震屏、镜头推近；FEVER 时天空变金色。
 - 公园场景（`src/view/scenery.ts`）：每场随机布置树、岩石、栅栏、旗子、自动贩卖机；3–5 个围观者（没上场的角色）跟着节拍晃动、结算时一起跳、欢呼或叹气；2–3 只小动物走走停停，FEVER 时跳舞。
 - 模型：Kenney 的 Mini Characters / Mini Forest / Mini Arcade / Cube Pets（CC0，`public/models/`，许可文件在各文件夹）。
-- 声音：全部由 Web Audio 合成。`src/audio/synth.ts` 是音效和每拍提示音；`src/audio/music.ts` 是 BGM：普通关卡按顺序轮流播放 3 首 Lo-fi（放学后 → 黄昏教室 → 汽水 Chill-hop），强敌关卡播放电子 Funk，都和判定时钟从同一拍开始、跟着对手 BPM 走，FEVER 时加一层。标题画面可以关掉音乐（关掉后换回内建的节拍鼓组）。所有候选风格可以在 `/bgm.html` 试听。
+- 声音：全部由 Web Audio 合成。`src/audio/synth.ts` 是音效和每拍提示音；`src/audio/music.ts` 是 BGM：普通关卡按顺序轮流播放 3 首 Lo-fi（放学后 → 黄昏教室 → 汽水 Chill-hop），强敌关卡播放电子 Funk，都和判定时钟从同一拍开始、跟着对手 BPM 走，FEVER 时加一层。标题画面的「🔊 音量」可以分别调音乐和效果音（0–100%，默认 50%；效果音包含节拍提示音）；音乐调到 0 就是关掉，改用内建的节拍鼓组。所有候选风格可以在 `/bgm.html` 试听。
 
 ## 11. 浏览器存档（localStorage）
 
@@ -322,7 +322,8 @@ npm run build      # 静态网站输出到 dist/
 | `cc-lemon:tutorial` | 教程完成标记 `"done"` |
 | `cc-lemon:input-offset` | 节拍校准的补偿值（秒） |
 | `cc-lemon:lang` | 语言 `ja` / `zh` |
-| `cc-lemon:music` | 音乐开关 `on` / `off` |
+| `cc-lemon:volume` | 音量 `{music, sfx}`，各 0–1 |
+| `cc-lemon:music` | 旧版音乐开关（只读，`off` 会迁移成音乐 0） |
 
 ## 12. 代码结构
 

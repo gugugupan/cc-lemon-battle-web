@@ -16,13 +16,13 @@ import {
   loadBought,
   loadClear,
   loadLastCharacter,
-  loadMusicOn,
+  loadVolume,
   loadTutorialDone,
   recordBought,
   recordClear,
   saveBestFor,
   saveLastCharacter,
-  saveMusicOn,
+  saveVolume,
   saveTutorialDone,
 } from "./progress";
 import { Stage } from "../view/stage";
@@ -41,7 +41,7 @@ const CELEBRATION_MS = 2200;
 export class App {
   private clock = new BeatClock();
   private music = new MusicPlayer(this.clock.ctx);
-  private musicOn = loadMusicOn();
+  private volume = loadVolume();
   private playlistIndex = 0;
   private stage: Stage;
   private hud: Hud;
@@ -67,7 +67,7 @@ export class App {
     this.hud.onDialogue = () => this.tut && !this.tut.practicing && this.advanceTutorial();
     this.hud.onExit = () => this.tut && this.exitTutorial();
     this.stage.onFrame = (dt) => this.frame(dt);
-    this.music.setVolume(MUSIC_VOLUME);
+    this.applyVolume();
     const idle = characterById(this.lastCharacter).model;
     void this.stage.player.setModel(idle);
     void this.stage.enemy.setModel("character-female-b");
@@ -140,13 +140,23 @@ export class App {
         this.applyLang();
         this.showTitle();
       },
-      this.musicOn,
-      () => {
-        this.musicOn = !this.musicOn;
-        saveMusicOn(this.musicOn);
-        this.showTitle();
-      },
+      () =>
+        this.screens.volume(
+          this.volume,
+          (v) => {
+            this.volume = v;
+            saveVolume(v);
+            this.applyVolume();
+          },
+          () => this.clock.synth.coin(),
+          () => this.showTitle(),
+        ),
     );
+  }
+
+  private applyVolume(): void {
+    this.music.setVolume(MUSIC_VOLUME * this.volume.music);
+    this.clock.synth.setVolume(this.volume.sfx);
   }
 
   private async unlockThen(next: () => void): Promise<void> {
@@ -255,7 +265,7 @@ export class App {
 
   /** Normal fights cycle through the lo-fi tracks in order; elites get the funk track. */
   private startMusic(battle: Battle, bpm: number): void {
-    const on = this.musicOn;
+    const on = this.volume.music > 0;
     this.clock.groove = !on;
     this.clock.tickLevel = on ? MUSIC_TICK_LEVEL : 1;
     if (!on) return;

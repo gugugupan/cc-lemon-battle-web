@@ -3,7 +3,7 @@ import { type EnemySpec, enemyStats, fightBpm } from "../core/battle";
 import type { Item, Relic } from "../core/items";
 import { type Character, startItems, startRelics } from "../core/characters";
 import { GOAL_ROUNDS, REST_HEAL, REST_PRICE, type Run, sellPrice } from "../core/run";
-import type { ClearRecord } from "../game/progress";
+import type { ClearRecord, Volume } from "../game/progress";
 import { currentLang, t } from "../i18n";
 import { itemDesc, itemName, pips, seriesLabel } from "./hud";
 import { attachTooltip, hideTooltip } from "./tooltip";
@@ -113,8 +113,7 @@ export class Screens {
     onCalibrate: () => void,
     onHowto: () => void,
     onLang: () => void,
-    musicOn = true,
-    onMusic: () => void = () => {},
+    onVolume: () => void = () => {},
   ): void {
     const badge = clear
       ? `<div class="cleared-badge"><span class="cleared-main">${t("clearedBadge")}</span><span class="cleared-date">${t("clearedOn", formatDate(clear.first))}${clear.count > 1 ? t("clearedTimes", clear.count) : ""}</span></div>`
@@ -130,7 +129,7 @@ export class Screens {
       { label: `${t("tutorial")}${tutorialDone ? " ✓" : ""}`, onClick: onTutorial },
       { label: t("howto"), onClick: onHowto },
       { label: t("calibrate"), onClick: onCalibrate },
-      { label: t(musicOn ? "musicOn" : "musicOff"), onClick: onMusic, ghost: true },
+      { label: t("volume"), onClick: onVolume, ghost: true },
       { label: t("language"), onClick: onLang, ghost: true },
     ], "title");
   }
@@ -210,6 +209,34 @@ export class Screens {
       render();
     };
     render();
+  }
+
+  /** Music and sound-effect sliders; changes apply (and are saved) as they move. */
+  volume(current: Volume, onChange: (v: Volume) => void, preview: () => void, onBack: () => void): void {
+    const value = { ...current };
+    const row = (key: keyof Volume) => `<label class="vol-row"><span class="vol-name">${t(key === "music" ? "volMusic" : "volSfx")}</span>
+      <input type="range" min="0" max="100" step="5" value="${Math.round(value[key] * 100)}" data-vol="${key}">
+      <span class="vol-value">${Math.round(value[key] * 100)}%</span></label>`;
+    const panel = h(`<div class="panel vol-panel"><h2>${t("volume")}</h2>${row("music")}${row("sfx")}<p class="muted small">${t("volHint")}</p></div>`);
+    panel.querySelectorAll<HTMLInputElement>("[data-vol]").forEach((input) => {
+      const key = input.dataset.vol as keyof Volume;
+      const label = input.parentElement!.querySelector(".vol-value")!;
+      input.addEventListener("input", () => {
+        value[key] = Number(input.value) / 100;
+        label.textContent = value[key] === 0 ? t("volOff") : `${input.value}%`;
+        onChange({ ...value });
+      });
+      if (key === "sfx") input.addEventListener("change", preview);
+      if (value[key] === 0) label.textContent = t("volOff");
+    });
+    this.show(panel, [{ label: t("back"), onClick: onBack, primary: true }]);
+    this.keyHandler = (e) => {
+      if (e.key === "Escape") {
+        onBack();
+        return true;
+      }
+      return false;
+    };
   }
 
   howto(onBack: () => void): void {

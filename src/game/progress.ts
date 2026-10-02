@@ -113,11 +113,23 @@ export function saveTutorialDone(): void {
 }
 
 const MUSIC_KEY = "cc-lemon:music";
+const VOLUME_KEY = "cc-lemon:volume";
 
-export function loadMusicOn(): boolean {
-  return read(MUSIC_KEY) !== "off";
+/** Volume levels, 0–1 each; music at 0 means no music (the built-in beat drums play instead). */
+export interface Volume {
+  music: number;
+  sfx: number;
 }
 
-export function saveMusicOn(on: boolean): void {
-  write(MUSIC_KEY, on ? "on" : "off");
+export const DEFAULT_VOLUME: Volume = { music: 0.5, sfx: 0.5 };
+
+export function loadVolume(): Volume {
+  const saved = readJson<Partial<Volume>>(VOLUME_KEY, {});
+  const level = (v: unknown, fallback: number) => (typeof v === "number" && v >= 0 && v <= 1 ? v : fallback);
+  const musicFallback = read(MUSIC_KEY) === "off" ? 0 : DEFAULT_VOLUME.music;
+  return { music: level(saved.music, musicFallback), sfx: level(saved.sfx, DEFAULT_VOLUME.sfx) };
+}
+
+export function saveVolume(volume: Volume): void {
+  write(VOLUME_KEY, JSON.stringify(volume));
 }
