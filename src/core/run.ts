@@ -8,7 +8,6 @@ import { Rng } from "./rng";
 export const SLOTS = 4;
 /** Winning this many fights clears the game; the run can then go on as endless mode. */
 export const GOAL_ROUNDS = 20;
-export const VICTORY_HEAL = 2;
 export const ENEMY_NAME_COUNT = 12;
 export const MAX_ENEMY_RELICS = 6;
 /** Tell lines per action, ordered from blunt to subtle. */
@@ -28,7 +27,7 @@ export const RANK_COUNT = 5;
 export const ENEMY_COLORS = ["#ff8a80", "#8bd17c", "#f6a5c0", "#ffcc66", "#9fa8ff", "#6fd6d0", "#c792ea", "#ffab70"];
 
 /** The shop's always-available rest: pay to recover HP. */
-export const REST_PRICE = 10;
+export const REST_PRICE = 6;
 export const REST_HEAL = 1;
 
 export type Purchase = "ok" | "no_gold" | "bag_full" | "sold_out" | "maxed";
@@ -240,7 +239,7 @@ export class Run {
   }
 
   goldFor(n: number): number {
-    return 15 + 3 * n;
+    return 25 + 3 * n;
   }
 
   /**
@@ -254,7 +253,6 @@ export class Run {
     const gold = this.goldFor(this.round) * (wasElite && !this.enemy.challenger ? 2 : 1);
     this.relicPick = wasElite ? this.rollChest() : [];
     this.gold += gold;
-    this.hp = Math.min(this.maxHp, this.hp + VICTORY_HEAL);
     this.round++;
     this.enemy = enemyFor(this.round, this.rng, this.character.model);
     this.rollShop();

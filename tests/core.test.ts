@@ -298,11 +298,11 @@ describe("run", () => {
     expect(run.round).toBe(22);
   });
 
-  it("pays out, heals and restocks after a win", () => {
+  it("pays out and restocks after a win, without healing", () => {
     const run = new Run(1);
     run.finishBattle(true, 2);
     expect(run.round).toBe(2);
-    expect(run.hp).toBe(4);
+    expect(run.hp).toBe(2);
     expect(run.gold).toBeGreaterThan(20);
     expect(run.stock.length).toBe(3);
     expect(run.stock.every((s) => s.item.kind === "consumable")).toBe(true);
