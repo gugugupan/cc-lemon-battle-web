@@ -157,6 +157,11 @@ export class Battle {
     return costOf(action, this.costs);
   }
 
+  /** The player's last `n` resolved actions, oldest first. */
+  lastActions(n: number): ActionId[] {
+    return this.playerHistory.slice(-n);
+  }
+
   get perfectWindowMult(): number {
     return this.mods.perfectWindowMult * this.enemyMods.perfectWindowMult;
   }

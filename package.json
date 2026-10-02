@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "sim": "vitest run tests/balance.test.ts --reporter=verbose",
-    "sim:runs": "SIM=1 vitest run tests/runs.sim.test.ts --reporter=verbose"
+    "sim:runs": "SIM=1 vitest run tests/runs.sim.test.ts -t \"full runs\" --reporter=verbose",
+    "sim:builds": "SIM=1 vitest run tests/runs.sim.test.ts -t \"relic builds\" --reporter=verbose"
   },
   "dependencies": {
     "three": "^0.186.1"
