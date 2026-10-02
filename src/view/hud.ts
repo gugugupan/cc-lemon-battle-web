@@ -260,10 +260,11 @@ export class Hud {
     }
   }
 
-  /** Highlights one pad button, the item slots, or nothing. */
-  focus(target: ActionId | "slots" | "orbs" | null): void {
+  /** Highlights one pad button, the item slots, the beat dots, or nothing. */
+  focus(target: ActionId | "slots" | "beat" | null): void {
     for (const [action, button] of this.pad) button.classList.toggle("tut-focus", target === action);
     this.slots.classList.toggle("tut-focus", target === "slots");
+    this.beatPips.classList.toggle("tut-focus", target === "beat");
   }
 
   setRoundText(text: string): void {

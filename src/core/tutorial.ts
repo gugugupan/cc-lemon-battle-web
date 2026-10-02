@@ -24,8 +24,8 @@ export interface TutorialStep {
   item?: string;
   /** Tells are always shown and always true (the "read the tell" lesson). */
   honestTells?: boolean;
-  /** HUD element to highlight: an action pad button, "slots" or "frame" (the beat orbs). */
-  focus?: ActionId | "slots" | "orbs";
+  /** HUD element to highlight: an action pad button, "slots" or "beat" (the beat dots in the pad). */
+  focus?: ActionId | "slots" | "beat";
   hint: string;
 }
 
@@ -35,12 +35,12 @@ export const STRONG_HINT_AFTER = 3;
 
 export const TUTORIAL_STEPS: TutorialStep[] = [
   { lines: ["tut_intro_1", "tut_intro_2"], goal: "confirm", allowed: [], hint: "" },
-  { lines: ["tut_beat_1", "tut_beat_2"], goal: "watch", bars: 2, allowed: [], enemy: "guard", enemyEnergy: 0, focus: "orbs", hint: "tut_beat_hint" },
+  { lines: ["tut_beat_1", "tut_beat_2"], goal: "watch", bars: 2, allowed: [], enemy: "guard", enemyEnergy: 0, focus: "beat", hint: "tut_beat_hint" },
   { lines: ["tut_charge_1"], goal: "action", action: "charge", allowed: ["charge"], enemy: "guard", playerEnergy: 0, enemyEnergy: 0, focus: "charge", hint: "tut_charge_hint" },
   { lines: ["tut_attack_1"], goal: "hit", allowed: ["attack"], enemy: "charge", playerEnergy: 1, enemyEnergy: 0, focus: "attack", hint: "tut_attack_hint" },
   { lines: ["tut_guard_1", "tut_guard_2"], goal: "guarded", allowed: ["guard"], enemy: "attack", playerEnergy: 0, enemyEnergy: 1, honestTells: true, focus: "guard", hint: "tut_guard_hint" },
   { lines: ["tut_special_1", "tut_special_2"], goal: "guardBreak", allowed: ["charge", "special"], enemy: "guard", playerEnergy: 2, enemyEnergy: 0, focus: "special", hint: "tut_special_hint" },
-  { lines: ["tut_wait_1", "tut_wait_2"], goal: "wait", allowed: [], enemy: "guard", enemyEnergy: 0, focus: "orbs", hint: "tut_wait_hint" },
+  { lines: ["tut_wait_1", "tut_wait_2"], goal: "wait", allowed: [], enemy: "guard", enemyEnergy: 0, focus: "beat", hint: "tut_wait_hint" },
   { lines: ["tut_item_1", "tut_item_2"], goal: "useItem", allowed: ["item"], enemy: "guard", enemyEnergy: 0, item: "lemon_bomb", focus: "slots", hint: "tut_item_hint" },
   { lines: ["tut_fight_1"], goal: "win", allowed: ["attack", "guard", "charge", "special", "item"], hint: "tut_fight_hint" },
   { lines: ["tut_outro_1", "tut_outro_2"], goal: "confirm", allowed: [], hint: "" },

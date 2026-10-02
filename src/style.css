@@ -1614,28 +1614,36 @@ i.lemon.empty {
   align-self: center;
   justify-self: center;
   display: flex;
-  gap: 5px;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.55);
   pointer-events: none;
 }
 
 .pad-beat i {
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: rgba(31, 42, 68, 0.15);
   box-shadow: inset 0 0 0 2px rgba(31, 42, 68, 0.25);
-  transition: background 0.08s;
+  transition: background 0.08s, transform 0.08s;
 }
 
 .pad-beat i:last-child {
-  width: 18px;
-  height: 18px;
-  margin-top: -3px;
+  width: 26px;
+  height: 26px;
+}
+
+.pad-beat.tut-focus {
+  animation: tut-pulse 0.9s ease-in-out infinite;
 }
 
 .pad-beat i.on {
   background: var(--mint);
   box-shadow: inset 0 0 0 2px #12b886;
+  transform: scale(1.15);
 }
 
 .pad-beat i:last-child.on {

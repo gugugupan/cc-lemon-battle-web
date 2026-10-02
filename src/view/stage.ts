@@ -341,7 +341,7 @@ interface Burst {
 }
 
 /**
- * The 3D arena. Owns the renderer, camera, fighters, beat orbs and effects; knows nothing about
+ * The 3D arena. Owns the renderer, camera, fighters and effects; knows nothing about
  * game rules — the app tells it what to show.
  */
 export class Stage {
@@ -355,9 +355,6 @@ export class Stage {
 
   private skyUniforms = { top: { value: SKY_TOP.clone() }, mid: { value: SKY_MID.clone() }, low: { value: SKY_LOW.clone() } };
   private ring: THREE.Mesh;
-  private orbs: THREE.Mesh[] = [];
-  private orbLevel = [0, 0, 0, 0];
-  private orbColor: THREE.Color[] = [MINT.clone(), MINT.clone(), MINT.clone(), LEMON.clone()];
   private bursts: Burst[] = [];
   private bubbles: THREE.Points;
   private bubbleSpeed: Float32Array;
@@ -391,7 +388,6 @@ export class Stage {
     this.buildLights();
     this.ring = this.buildArena();
     this.scenery = new Scenery(this.scene);
-    this.buildOrbs();
     this.player = new FighterModel("player", "#4dabf7");
     this.enemy = new FighterModel("enemy", "#ff8a80");
     this.scene.add(this.player.root, this.enemy.root);
@@ -468,24 +464,6 @@ export class Stage {
     return ring;
   }
 
-  private buildOrbs(): void {
-    for (let i = 0; i < 4; i++) {
-      const big = i === 3;
-      const radius = big ? 0.42 : 0.3;
-      const mat = new THREE.MeshStandardMaterial({ color: big ? "#ffec99" : "#96f2d7", emissive: this.orbColor[i].clone(), emissiveIntensity: 0, roughness: 0.25 });
-      const geometry = new THREE.SphereGeometry(radius, 24, 16);
-      const orb = new THREE.Mesh(geometry, mat);
-      const rim = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: "#1f2a44", side: THREE.BackSide, transparent: true, opacity: 0.6 }));
-      rim.scale.setScalar(1.13);
-      const shine = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.22, 12, 8), new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.9 }));
-      shine.position.set(-radius * 0.38, radius * 0.4, radius * 0.75);
-      orb.add(rim, shine);
-      orb.position.set(-2.1 + i * 1.4, 3.95, -1.2);
-      this.scene.add(orb);
-      this.orbs.push(orb);
-    }
-  }
-
   private buildBubbles(): { points: THREE.Points; speeds: Float32Array } {
     const count = 140;
     const positions = new Float32Array(count * 3);
@@ -522,20 +500,12 @@ export class Stage {
     this.enemy.setColor(color);
   }
 
-  /** A beat as heard. Beats 1–3 light their orb and keep it lit; 「モン」 flashes everything. */
+  /** A beat as heard: everyone bounces, and 「モン」 punches the camera and flashes the ring. */
   beat(beatInBar: number, rest: boolean): void {
     this.player.bounce();
     this.enemy.bounce();
     this.scenery.beat(beatInBar, rest);
-    if (beatInBar === 0) this.orbLevel = [0, 0, 0, 0];
-    const color = rest ? REST : null;
-    this.orbColor.forEach((c, i) => c.copy(color ?? (i === 3 || this.feverOn ? LEMON : MINT)));
-    if (beatInBar < 3) {
-      this.orbLevel[beatInBar] = rest ? 0.35 : 1;
-    } else {
-      this.orbLevel = rest ? [0.35, 0.35, 0.35, 0.5] : [1.3, 1.3, 1.3, 2];
-      if (!rest) this.punch = 1;
-    }
+    if (beatInBar === 3 && !rest) this.punch = 1;
     const ringMat = this.ring.material as THREE.MeshStandardMaterial;
     ringMat.emissive.copy(rest ? REST : this.feverOn ? LEMON : MINT);
     ringMat.emissiveIntensity = beatInBar === 3 && !rest ? 2.2 : 1.0;
@@ -733,14 +703,6 @@ export class Stage {
     this.skyUniforms.mid.value.copy(SKY_MID).lerp(FEVER_MID, this.feverK);
     this.skyUniforms.low.value.copy(SKY_LOW).lerp(FEVER_LOW, this.feverK);
 
-    this.orbs.forEach((orb, i) => {
-      this.orbLevel[i] *= i === 3 ? 0.9 : 0.995;
-      const mat = orb.material as THREE.MeshStandardMaterial;
-      mat.emissive.lerp(this.orbColor[i], 0.3);
-      mat.emissiveIntensity = 0.2 + 0.7 * Math.min(1.6, this.orbLevel[i]);
-      orb.scale.setScalar(1 + 0.2 * Math.min(1, this.orbLevel[i]));
-      orb.position.y = 3.95 + Math.sin(performance.now() / 600 + i) * 0.06;
-    });
     const ringMat = this.ring.material as THREE.MeshStandardMaterial;
     ringMat.emissiveIntensity += (0.6 - ringMat.emissiveIntensity) * Math.min(1, dt * 4);
 
