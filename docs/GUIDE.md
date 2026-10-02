@@ -31,7 +31,7 @@ Godot 版（`../cc-lemon-roguelike`，有剧情的「8月31日のレモン」）
 
 - 技术：Vite + TypeScript + Three.js，DOM 做 HUD，Web Audio 做节拍和全部声音，vitest 测试。
 - 语言：日文 / 简体中文（标题画面切换，`src/i18n.ts`）。
-- 仓库：`~/workspace/cc-lemon-web`，直接提交到 `main`，无远端。
+- 仓库：`~/workspace/fde/cc-lemon-web`，直接提交到 `main`，远端 `gugugupan/cc-lemon-battle-web`。
 
 ## 2. 运行与开发
 
