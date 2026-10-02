@@ -122,7 +122,7 @@ describe("battle", () => {
   it("can skip rest bars and settle half a beat after the action", () => {
     const { battle, spb } = fight([itemById("eco") as Relic], [], false);
     let beat = 0;
-    for (let attacks = 0; attacks < 3; beat++) {
+    for (let attacks = 0; attacks < 2; beat++) {
       battle.onBeat(beat);
       const bar = Math.floor(beat / 4);
       expect(bar === 0 || !battle.isRestBar(bar)).toBe(true);
@@ -134,9 +134,9 @@ describe("battle", () => {
       }
       const before = battle.player.energy;
       battle.onOffbeat(beat);
-      if (attacks === 3 && beat % 4 === 3) expect(battle.player.energy).toBe(before + 1);
+      if (attacks === 2 && beat % 4 === 3) expect(battle.player.energy).toBe(before + 1);
     }
-    expect(beat).toBe(16);
+    expect(beat).toBe(12);
   });
 
   it("counts any graded action toward the combo and resets it on a wait", () => {
@@ -166,7 +166,7 @@ describe("battle", () => {
     const { battle, spb } = fight([itemById("cold_lemon") as Relic, itemById("eco") as Relic]);
     expect(battle.player.energy).toBe(1);
     let beat = 0;
-    for (let attacks = 0; attacks < 3; ) {
+    for (let attacks = 0; attacks < 2; ) {
       battle.onBeat(beat);
       const bar = Math.floor(beat / 4);
       if (beat % 4 === 3 && !battle.isRestBar(bar)) {
@@ -232,12 +232,12 @@ describe("run", () => {
     expect(run.relicPick.length).toBe(0);
   });
 
-  it("charges for 2 from fight 10, and chargers always do", () => {
+  it("charges for 2 from fight 15, and chargers always do", () => {
     const rng = new Rng(5);
     for (let i = 0; i < 40; i++) {
-      const early = enemyFor(3, rng);
+      const early = enemyFor(12, rng);
       expect(early.chargeBonus).toBe(early.personality === "charger" ? 1 : 0);
-      expect(enemyFor(10, rng).chargeBonus).toBe(1);
+      expect(enemyFor(15, rng).chargeBonus).toBe(1);
     }
     const e = { hp: 5, maxHp: 5, energy: 0, maxEnergy: 3 };
     resolve({ hp: 5, maxHp: 5, energy: 0, maxEnergy: 3 }, "guard", e, "charge", { enemyChargeBonus: 1 });
@@ -597,13 +597,15 @@ describe("build series", () => {
     expect(battle.player.energy).toBe(1);
   });
 
-  it("persistence: refunds at most twice per fight", () => {
+  it("persistence: refunds a blocked attack, at most 3 times per fight", () => {
     const { battle, round } = arena(["persistence"]);
-    round("attack", "charge", () => (battle.player.energy = 3));
+    round("attack", "guard", () => (battle.player.energy = 3));
+    expect(battle.player.energy).toBe(3);
     round("attack", "guard");
     round("attack", "guard");
+    expect(battle.player.energy).toBe(3);
     round("attack", "guard");
-    expect(battle.player.energy).toBe(1);
+    expect(battle.player.energy).toBe(2);
   });
 
   it("counter: guarding an attack with energy spends 1 and deals 1", () => {

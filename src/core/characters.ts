@@ -27,7 +27,7 @@ export const CHARACTERS: Character[] = [
   { id: "brass", model: "character-female-b", hp: 5, gold: 20, relics: ["breathing"], items: ["ramune"], unlock: { type: "buy", item: "breathing" } },
   { id: "sleuth", model: "character-female-d", hp: 5, gold: 20, relics: ["detective"], items: [], unlock: { type: "buy", item: "detective" } },
   { id: "blaster", model: "character-male-d", hp: 4, gold: 20, relics: ["discount"], items: ["lemon_bomb"], unlock: { type: "wins", n: 8 } },
-  { id: "transfer", model: "character-female-a", hp: 3, gold: 50, relics: ["double_time", "hot_blood"], items: [], unlock: { type: "wins", n: 20 } },
+  { id: "transfer", model: "character-female-a", hp: 4, gold: 50, relics: ["double_time", "hot_blood"], items: [], unlock: { type: "wins", n: 20 } },
 ];
 
 export function characterById(id: string): Character {

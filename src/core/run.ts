@@ -45,7 +45,7 @@ export interface StockEntry {
 /** Every n-th fight is an elite: tougher, and its reward includes a free relic pick. */
 export const ELITE_EVERY = 5;
 /** From this fight on every enemy gets +1 energy per charge (chargers always do). */
-export const STRONG_CHARGE_FROM = 10;
+export const STRONG_CHARGE_FROM = 15;
 export const RELIC_PICK_SIZE = 3;
 /** The shop's treasure chest: one per visit, opens to a relic pick; dearer for every relic owned. */
 export const CHEST_PRICE = 45;
@@ -85,7 +85,7 @@ export function enemyFor(n: number, rng: Rng, playerModel = ""): EnemySpec {
     model: rng.pick((body === "any" ? [...MODELS.male, ...MODELS.female] : MODELS[body]).filter((m) => m !== playerModel)),
     rank: Math.min(RANK_COUNT - 1, Math.floor(k / 3)),
     color: rng.pick(ENEMY_COLORS),
-    maxHp: Math.min(11, 3 + Math.floor(k / 5) + (elite ? (n >= 10 ? 2 : 1) : 0)),
+    maxHp: Math.min(11, 3 + Math.floor(k / 5) - (n >= 10 ? 1 : 0) + (elite ? (n >= 10 ? 2 : 1) : 0)),
     maxEnergy: n >= 10 ? 4 : 3,
     startEnergy: n >= 12 ? 2 : n >= 6 ? 1 : 0,
     tellChance: Math.min(0.9, Math.max(0.25, 0.5 - 0.015 * k) * p.tellMult),
