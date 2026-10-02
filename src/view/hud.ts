@@ -65,6 +65,10 @@ export class Hud {
   readonly slotButtons: HTMLButtonElement[] = [];
   onAction: (action: ActionId, event: PointerEvent) => void = () => {};
   onItem: (slot: number, event: PointerEvent) => void = () => {};
+  /** Tapping the tutorial guide's box (same as Enter). */
+  onDialogue: () => void = () => {};
+  /** The tutorial's exit button (same as Esc). */
+  onExit: () => void = () => {};
   private costOf: (action: ActionId) => number = (a) => ACTIONS[a].cost;
 
   private player: Side;
@@ -81,6 +85,9 @@ export class Hud {
   private dialogueBox = el("div", "dialogue hidden");
   private hintBar = el("div", "tut-hint hidden");
   private popups = el("div", "popups");
+  private tellAt = { x: 0, y: 0 };
+  private exitButton = el("button", "tut-exit hidden", "✕") as HTMLButtonElement;
+  private beatPips = el("div", "pad-beat");
 
   constructor(parent: HTMLElement) {
     const top = el("div", "hud-top");
@@ -105,12 +112,23 @@ export class Hud {
       padWrap.append(button);
       this.pad.set(action, button);
     }
+    this.beatPips.innerHTML = "<i></i><i></i><i></i><i></i>";
+    padWrap.append(this.beatPips);
     this.setCosts((a) => ACTIONS[a].cost);
     this.comboBar.append(el("div", "fill"));
     this.combo.append(this.comboCount, this.comboLabel, this.comboBar);
     bottom.append(slotWrap, padWrap, this.combo);
 
-    this.root.append(top, bottom, this.bubble, this.hintBar, this.dialogueBox, this.popups);
+    this.dialogueBox.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      this.onDialogue();
+    });
+    this.exitButton.setAttribute("aria-label", t("tut_exitLabel"));
+    this.exitButton.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      this.onExit();
+    });
+    this.root.append(top, bottom, this.bubble, this.hintBar, this.dialogueBox, this.exitButton, this.popups);
     parent.append(this.root);
   }
 
@@ -144,8 +162,22 @@ export class Hud {
     this.bpm.textContent = `♩ ${bpm}`;
   }
 
-  beat(rest: boolean): void {
+  /** Marks the beat on the pad: pips fill on 1–3 and the pad lights up on the action beat. */
+  beat(beatInBar: number, rest: boolean): void {
     this.root.classList.toggle("resting", rest);
+    const pad = this.beatPips.parentElement!;
+    pad.classList.toggle("cue-ready", !rest && beatInBar === 2);
+    pad.classList.remove("cue-now");
+    this.beatPips.querySelectorAll("i").forEach((pip, i) => pip.classList.toggle("on", !rest && i <= beatInBar));
+    if (!rest && beatInBar === 3) {
+      void pad.offsetWidth;
+      pad.classList.add("cue-now");
+    }
+  }
+
+  /** Shows the tutorial's exit button. */
+  setTutorial(on: boolean): void {
+    this.exitButton.classList.toggle("hidden", !on);
   }
 
   /** Shows each action's energy cost (relics can change it). */
@@ -276,7 +308,10 @@ export class Hud {
   tell(text: string, forced: boolean): void {
     this.bubble.textContent = forced ? `${text} ${t("tellTrue")}` : text;
     this.bubble.classList.toggle("forced", forced);
-    this.bubble.classList.remove("hidden");
+    this.bubble.classList.remove("hidden", "show");
+    this.fitTell();
+    void this.bubble.offsetWidth;
+    this.bubble.classList.add("show");
   }
 
   hideTell(): void {
@@ -284,8 +319,20 @@ export class Hud {
   }
 
   placeTell(x: number, y: number): void {
-    this.bubble.style.left = `${x}px`;
+    this.tellAt = { x, y };
+    this.fitTell();
+  }
+
+  /** Keeps the bubble on screen; its tail still points at the speaker. */
+  private fitTell(): void {
+    const { x, y } = this.tellAt;
+    const half = this.bubble.offsetWidth / 2;
+    const margin = 8;
+    const left = half ? Math.min(Math.max(x, half + margin), window.innerWidth - half - margin) : x;
+    this.bubble.style.left = `${left}px`;
     this.bubble.style.top = `${y}px`;
+    const reach = Math.max(0, half - 18);
+    this.bubble.style.setProperty("--tail", `${Math.min(reach, Math.max(-reach, x - left))}px`);
   }
 
   popup(text: string, x: number, y: number, cls = ""): void {

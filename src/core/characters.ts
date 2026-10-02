@@ -12,6 +12,8 @@ export interface Character {
   id: string;
   /** Model file under public/models. */
   model: string;
+  /** Shown on the character picker's dots. */
+  icon: string;
   hp: number;
   gold: number;
   relics: string[];
@@ -20,14 +22,14 @@ export interface Character {
 }
 
 export const CHARACTERS: Character[] = [
-  { id: "normal", model: "character-male-a", hp: 5, gold: 40, relics: [], items: ["bandage"], unlock: { type: "default" } },
-  { id: "librarian", model: "character-female-e", hp: 5, gold: 40, relics: ["tea_break"], items: ["bandage"], unlock: { type: "default" } },
-  { id: "baseball", model: "character-male-f", hp: 5, gold: 30, relics: ["follow_up"], items: ["wraps"], unlock: { type: "default" } },
-  { id: "prefect", model: "character-male-c", hp: 5, gold: 20, relics: ["counter"], items: ["shield_sticker"], unlock: { type: "default" } },
-  { id: "brass", model: "character-female-b", hp: 5, gold: 20, relics: ["breathing"], items: ["ramune"], unlock: { type: "buy", item: "breathing" } },
-  { id: "sleuth", model: "character-female-d", hp: 5, gold: 20, relics: ["detective"], items: [], unlock: { type: "buy", item: "detective" } },
-  { id: "blaster", model: "character-male-d", hp: 4, gold: 20, relics: ["discount"], items: ["lemon_bomb"], unlock: { type: "wins", n: 8 } },
-  { id: "transfer", model: "character-female-a", hp: 4, gold: 50, relics: ["double_time", "hot_blood"], items: [], unlock: { type: "wins", n: 20 } },
+  { id: "normal", icon: "🙂", model: "character-male-a", hp: 5, gold: 40, relics: [], items: ["bandage"], unlock: { type: "default" } },
+  { id: "librarian", icon: "📚", model: "character-female-e", hp: 5, gold: 40, relics: ["tea_break"], items: ["bandage"], unlock: { type: "default" } },
+  { id: "baseball", icon: "⚾", model: "character-male-f", hp: 5, gold: 30, relics: ["follow_up"], items: ["wraps"], unlock: { type: "default" } },
+  { id: "prefect", icon: "📋", model: "character-male-c", hp: 5, gold: 20, relics: ["counter"], items: ["shield_sticker"], unlock: { type: "default" } },
+  { id: "brass", icon: "🎺", model: "character-female-b", hp: 5, gold: 20, relics: ["breathing"], items: ["ramune"], unlock: { type: "buy", item: "breathing" } },
+  { id: "sleuth", icon: "🔍", model: "character-female-d", hp: 5, gold: 20, relics: ["detective"], items: [], unlock: { type: "buy", item: "detective" } },
+  { id: "blaster", icon: "💥", model: "character-male-d", hp: 4, gold: 20, relics: ["discount"], items: ["lemon_bomb"], unlock: { type: "wins", n: 8 } },
+  { id: "transfer", icon: "✨", model: "character-female-a", hp: 4, gold: 50, relics: ["double_time", "hot_blood"], items: [], unlock: { type: "wins", n: 20 } },
 ];
 
 export function characterById(id: string): Character {

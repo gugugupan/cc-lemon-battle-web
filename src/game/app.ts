@@ -64,6 +64,8 @@ export class App {
     this.screens.chestSfx = (phase) => this.clock.synth.chest(phase);
     this.hud.onAction = (a, e) => this.act(a, e);
     this.hud.onItem = (slot, e) => this.useItem(slot, e);
+    this.hud.onDialogue = () => this.tut && !this.tut.practicing && this.advanceTutorial();
+    this.hud.onExit = () => this.tut && this.exitTutorial();
     this.stage.onFrame = (dt) => this.frame(dt);
     this.music.setVolume(MUSIC_VOLUME);
     const idle = characterById(this.lastCharacter).model;
@@ -95,7 +97,7 @@ export class App {
         this.stage.enemy.bounce();
       }
     }
-    const p = this.stage.screenOf("enemy", 3.1);
+    const p = this.stage.screenOf("enemy", 2.3);
     this.hud.placeTell(p.x, p.y);
   }
 
@@ -282,6 +284,7 @@ export class App {
     this.stage.setEnemyColor("#b0b0b0");
     void this.stage.scenery.rebuild(7, [this.character.model, TUTORIAL_DUMMY], this.compact());
     this.hud.show(true);
+    this.hud.setTutorial(true);
     this.hud.setRoundText(t("tutorial"));
     this.showTutorialStep();
   }
@@ -323,6 +326,7 @@ export class App {
       this.hud.dialogue(null);
       this.hud.hint(null);
       this.hud.focus(null);
+      this.hud.setTutorial(false);
       this.showTitle();
       return;
     }
@@ -414,6 +418,7 @@ export class App {
     this.hud.dialogue(null);
     this.hud.hint(null);
     this.hud.focus(null);
+    this.hud.setTutorial(false);
     this.showTitle();
   }
 
@@ -440,7 +445,7 @@ export class App {
     switch (e.type) {
       case "beat":
         this.stage.beat(e.beat, e.rest);
-        this.hud.beat(e.rest);
+        this.hud.beat(e.beat, e.rest);
         if (e.beat === 0) this.hud.hideTell();
         break;
       case "tell":

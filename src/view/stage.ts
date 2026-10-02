@@ -472,8 +472,12 @@ export class Stage {
   private buildOrbs(): void {
     for (let i = 0; i < 4; i++) {
       const big = i === 3;
-      const mat = new THREE.MeshStandardMaterial({ color: "#ffffff", emissive: this.orbColor[i].clone(), emissiveIntensity: 0.1, roughness: 0.2, transparent: true, opacity: 0.9 });
-      const orb = new THREE.Mesh(new THREE.SphereGeometry(big ? 0.42 : 0.3, 24, 16), mat);
+      const mat = new THREE.MeshStandardMaterial({ color: "#ffffff", emissive: this.orbColor[i].clone(), emissiveIntensity: 0.1, roughness: 0.2 });
+      const geometry = new THREE.SphereGeometry(big ? 0.42 : 0.3, 24, 16);
+      const orb = new THREE.Mesh(geometry, mat);
+      const rim = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: "#1f2a44", side: THREE.BackSide, transparent: true, opacity: 0.6 }));
+      rim.scale.setScalar(1.13);
+      orb.add(rim);
       orb.position.set(-2.1 + i * 1.4, 3.95, -1.2);
       this.scene.add(orb);
       this.orbs.push(orb);

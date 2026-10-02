@@ -79,7 +79,7 @@ button {
   left: 16px;
   right: 16px;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   gap: 12px;
   align-items: start;
 }
@@ -96,6 +96,10 @@ button {
   max-width: 320px;
 }
 
+.fighter-card:has(.fighter-name:empty) {
+  visibility: hidden;
+}
+
 .fighter-card.player {
   border-left: 6px solid #4dabf7;
 }
@@ -108,8 +112,10 @@ button {
 
 .fighter-head {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 2px 8px;
   align-items: baseline;
+  min-width: 0;
 }
 
 .enemy .fighter-head {
@@ -119,6 +125,8 @@ button {
 .fighter-name {
   font-weight: 900;
   font-size: 18px;
+  min-width: 0;
+  max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -302,6 +310,8 @@ i.lemon.empty {
 }
 
 .pad {
+  position: relative;
+  border-radius: 20px;
   display: grid;
   grid-template-columns: repeat(3, 108px);
   grid-template-rows: repeat(3, 58px);
@@ -483,27 +493,46 @@ i.lemon.empty {
   position: absolute;
   transform: translate(-50%, -100%);
   background: #fff;
-  padding: 8px 14px;
-  border-radius: 16px;
+  padding: 10px 18px;
+  border: 3px solid var(--ink);
+  border-radius: 18px;
+  font-size: 19px;
   font-weight: 900;
   box-shadow: var(--shadow);
   white-space: nowrap;
+  z-index: 3;
+}
+
+.tell-bubble.show {
+  animation: tell-pop 0.28s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+@keyframes tell-pop {
+  from {
+    transform: translate(-50%, -80%) scale(0.4);
+    opacity: 0;
+  }
 }
 
 .tell-bubble::after {
   content: "";
   position: absolute;
-  left: 50%;
-  bottom: -9px;
+  left: calc(50% + var(--tail, 0px));
+  bottom: -12px;
   transform: translateX(-50%);
-  border: 10px solid transparent;
-  border-top-color: #fff;
+  border: 11px solid transparent;
+  border-top-color: var(--ink);
   border-bottom: 0;
 }
 
 .tell-bubble.forced {
   background: #e7f5ff;
   color: #1c7ed6;
+  border-color: #1c7ed6;
+}
+
+.tell-bubble.forced::after {
+  border-top-color: #1c7ed6;
 }
 
 .popups {
@@ -563,8 +592,12 @@ i.lemon.empty {
 }
 
 .popup.wait {
-  color: var(--ink-soft);
-  font-size: 18px;
+  color: #fff;
+  background: rgba(31, 42, 68, 0.78);
+  padding: 4px 16px;
+  border-radius: 99px;
+  font-size: 20px;
+  text-shadow: none;
 }
 
 .popup.notice {
@@ -1036,7 +1069,7 @@ i.lemon.empty {
 }
 
 .shop-card .item-desc {
-  font-size: 12px;
+  font-size: 13px;
   flex: 1;
 }
 
@@ -1147,7 +1180,8 @@ i.lemon.empty {
 
 @media (max-width: 760px) {
   .hud-top {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
     left: 10px;
     right: 10px;
   }
@@ -1418,18 +1452,21 @@ i.lemon.empty {
 
 .char-dots {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   margin: 6px 0 12px;
 }
 
 .char-dot {
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   border: none;
   border-radius: 50%;
   background: #e9ecef;
-  font-size: 12px;
+  font-size: 18px;
   padding: 0;
+  display: grid;
+  place-items: center;
 }
 
 .char-dot.on {
@@ -1439,6 +1476,8 @@ i.lemon.empty {
 
 .char-dot.locked {
   background: #dee2e6;
+  font-size: 13px;
+  opacity: 0.75;
 }
 
 .char-card {
@@ -1510,6 +1549,13 @@ i.lemon.empty {
   }
 }
 
+@media (orientation: portrait) and (max-aspect-ratio: 4/5) {
+  .overlay:not(.scroll):not(.select) {
+    place-items: end center;
+    padding-bottom: max(28px, env(safe-area-inset-bottom));
+  }
+}
+
 /* ---------- personalities & elites ---------- */
 
 .personality {
@@ -1559,6 +1605,84 @@ i.lemon.empty {
 
 .stock.pick {
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+/* ---------- beat cue on the pad ---------- */
+
+.pad-beat {
+  grid-area: 2 / 2;
+  align-self: center;
+  justify-self: center;
+  display: flex;
+  gap: 5px;
+  pointer-events: none;
+}
+
+.pad-beat i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(31, 42, 68, 0.15);
+  box-shadow: inset 0 0 0 2px rgba(31, 42, 68, 0.25);
+  transition: background 0.08s;
+}
+
+.pad-beat i:last-child {
+  width: 18px;
+  height: 18px;
+  margin-top: -3px;
+}
+
+.pad-beat i.on {
+  background: var(--mint);
+  box-shadow: inset 0 0 0 2px #12b886;
+}
+
+.pad-beat i:last-child.on {
+  background: var(--lemon);
+  box-shadow: inset 0 0 0 2px var(--lemon-deep), 0 0 12px var(--lemon);
+}
+
+.pad.cue-ready .pad-btn:not(:disabled) {
+  box-shadow: 0 5px 0 var(--c), 0 0 0 3px rgba(255, 212, 59, 0.55), 0 8px 16px rgba(31, 42, 68, 0.2);
+}
+
+.pad.cue-now::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 24px;
+  border: 4px solid var(--lemon);
+  box-shadow: 0 0 24px rgba(255, 212, 59, 0.9);
+  pointer-events: none;
+  animation: cue-now 0.45s ease-out forwards;
+}
+
+@keyframes cue-now {
+  from {
+    opacity: 1;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
+
+.tut-exit {
+  position: absolute;
+  right: 12px;
+  top: calc(max(12px, env(safe-area-inset-top)) + 150px);
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: var(--glass-strong);
+  box-shadow: var(--shadow);
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--ink-soft);
+  z-index: 6;
 }
 
 /* ---------- treasure chest ---------- */
@@ -1769,6 +1893,61 @@ i.lemon.empty {
   100% { opacity: 0; transform: translateY(-80px) scale(0.6); }
 }
 
+.stock.featured {
+  grid-template-columns: 1fr;
+}
+
+@media (max-width: 520px) {
+  .shop-card.chest-offer {
+    flex-wrap: wrap;
+  }
+
+  .shop-card.chest-offer .chest-text {
+    flex: 1 1 calc(100% - 80px);
+  }
+
+  .shop-card.chest-offer .price {
+    margin-left: auto;
+  }
+
+  .char-dot {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+
+  .char-dots {
+    gap: 5px;
+  }
+}
+
+.shop-card.chest-offer {
+  flex-direction: row;
+  text-align: left;
+  gap: 14px;
+  padding: 14px 18px;
+}
+
+.chest-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shop-card.chest-offer .item-name {
+  font-size: 18px;
+}
+
+.shop-card.chest-offer .tag {
+  position: static;
+}
+
+.shop-card.chest-offer .price {
+  font-size: 16px;
+  padding: 6px 16px;
+}
+
 .shop-card.chest-offer {
   position: relative;
   background: linear-gradient(160deg, #fff9db 0%, #ffec99 100%);
@@ -1819,6 +1998,8 @@ i.lemon.empty {
 /* ---------- tutorial ---------- */
 
 .dialogue {
+  pointer-events: auto;
+  cursor: pointer;
   position: absolute;
   left: 50%;
   bottom: max(18px, env(safe-area-inset-bottom));
@@ -1889,6 +2070,25 @@ i.lemon.empty {
 
 .tut-hint.strong {
   background: #f08c00;
+}
+
+@media (max-width: 760px) {
+  .tut-hint {
+    top: calc(max(12px, env(safe-area-inset-top)) + 128px);
+    width: max-content;
+    max-width: calc(100% - 80px);
+    white-space: normal;
+    text-align: center;
+    font-size: 14px;
+    border-radius: 16px;
+  }
+
+  .tut-exit {
+    top: calc(max(12px, env(safe-area-inset-top)) + 124px);
+    width: 38px;
+    height: 38px;
+    font-size: 15px;
+  }
 }
 
 .tut-hint.pop {

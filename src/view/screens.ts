@@ -44,6 +44,8 @@ export function personalityName(spec: EnemySpec): string {
   return t(`personality_${spec.personality}` as Parameters<typeof t>[0]);
 }
 
+const PERSONALITY_ICONS: Record<EnemySpec["personality"], string> = { brawler: "🔥", guardian: "🛡️", charger: "⚡", reader: "🧠", wild: "🎲" };
+
 /** Full-screen overlay panels. Enter presses the panel's primary button. */
 export class Screens {
   readonly root = h(`<div class="overlay hidden"></div>`);
@@ -154,7 +156,12 @@ export class Screens {
       const kit = [...startRelics(c), ...startItems(c)];
       const unlockText =
         c.unlock.type === "wins" ? t("unlockWins", c.unlock.n) : c.unlock.type === "buy" ? t("unlockBuy", itemName(c.unlock.item)) : "";
-      const dots = characters.map((ch, j) => `<button class="char-dot ${j === i ? "on" : ""} ${unlocked(ch) ? "" : "locked"}" data-char="${j}">${unlocked(ch) ? "" : "🔒"}</button>`).join("");
+      const dots = characters
+        .map((ch, j) => {
+          const label = unlocked(ch) ? t(`char_${ch.id}` as Parameters<typeof t>[0]) : t("locked");
+          return `<button class="char-dot ${j === i ? "on" : ""} ${unlocked(ch) ? "" : "locked"}" data-char="${j}" title="${escape(label)}" aria-label="${escape(label)}">${unlocked(ch) ? ch.icon : "🔒"}</button>`;
+        })
+        .join("");
       const panel = h(`<div class="panel select-panel">
         <div class="select-head"><h2>${t("chooseTitle")}</h2><span class="muted small">${t("chooseHint")}</span></div>
         <div class="char-dots">${dots}</div>
@@ -271,7 +278,7 @@ export class Screens {
     const panel = h(`<div class="panel intro-panel ${e.elite ? "elite" : ""}" style="--accent:${e.color}">
       <div class="intro-head"><span class="vs">${e.elite ? `<span class="elite-tag">⚠ ${t("eliteTag")}</span>` : t("introVs")}</span><span class="round-chip">${roundLabel(run)}</span></div>
       <div class="intro-body">
-        <div class="avatar" style="background:${e.color}"><span>${escape(enemyName(e).slice(-1))}</span></div>
+        <div class="avatar" style="background:${e.color}"><span>${PERSONALITY_ICONS[e.personality]}</span></div>
         <div class="intro-info">
           <div class="intro-name">${escape(enemyName(e))}</div>
           <div class="rank-tag">${escape(enemyRank(e))}</div>
@@ -399,8 +406,8 @@ export class Screens {
       const chestOpen = !run.chestSold;
       const chest = `<button class="shop-card chest-offer ${chestOpen ? "" : "sold"}" data-chest ${chestOpen ? "" : "disabled"}>
             <span class="item-icon big"><span class="mini-chest"></span></span>
-            <span class="item-name">${t("chestName")} <span class="tag">${t("relicTag")}</span></span>
-            <span class="item-desc">${t("chestDesc")}</span>
+            <span class="chest-text"><span class="item-name">${t("chestName")} <span class="tag">${t("relicTag")}</span></span>
+            <span class="item-desc">${t("chestDesc")}</span></span>
             <span class="price">${chestOpen ? t("buy", run.chestPrice()) : t("sold")}</span></button>`;
       const slots = run.slots
         .map((s, i) => `<button class="slot ${s ? "" : "empty"} ${selected === i ? "selected" : ""}" data-slot="${i}"><span class="slot-key">${i + 1}</span><span class="slot-icon">${s?.icon ?? ""}</span></button>`)
@@ -414,7 +421,8 @@ export class Screens {
       const panel = h(`<div class="panel shop-panel">
         <div class="shop-head"><h2>🏪 ${t("shop")}</h2><div class="gold">🪙 ${t("gold", run.gold)}</div></div>
         <p class="muted">${t("shopHint")}</p>
-        <div class="stock">${chest}${rest}${stock}</div>
+        <div class="stock featured">${chest}</div>
+        <div class="stock">${rest}${stock}</div>
         <h3>${t("owned")}</h3>
         <div class="owned"><div class="hearts">${pips(run.hp, run.maxHp, "heart", "heart empty")}</div><div class="slots">${slots}</div></div>
         <div class="sell-list">${owned}</div>
