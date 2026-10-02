@@ -356,7 +356,6 @@ export class Stage {
   private skyUniforms = { top: { value: SKY_TOP.clone() }, mid: { value: SKY_MID.clone() }, low: { value: SKY_LOW.clone() } };
   private ring: THREE.Mesh;
   private orbs: THREE.Mesh[] = [];
-  private orbLabels: THREE.Sprite[] = [];
   private orbLevel = [0, 0, 0, 0];
   private orbColor: THREE.Color[] = [MINT.clone(), MINT.clone(), MINT.clone(), LEMON.clone()];
   private bursts: Burst[] = [];
@@ -472,43 +471,19 @@ export class Stage {
   private buildOrbs(): void {
     for (let i = 0; i < 4; i++) {
       const big = i === 3;
-      const mat = new THREE.MeshStandardMaterial({ color: "#ffffff", emissive: this.orbColor[i].clone(), emissiveIntensity: 0.1, roughness: 0.2 });
-      const geometry = new THREE.SphereGeometry(big ? 0.42 : 0.3, 24, 16);
+      const radius = big ? 0.42 : 0.3;
+      const mat = new THREE.MeshStandardMaterial({ color: big ? "#ffec99" : "#96f2d7", emissive: this.orbColor[i].clone(), emissiveIntensity: 0, roughness: 0.25 });
+      const geometry = new THREE.SphereGeometry(radius, 24, 16);
       const orb = new THREE.Mesh(geometry, mat);
       const rim = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: "#1f2a44", side: THREE.BackSide, transparent: true, opacity: 0.6 }));
       rim.scale.setScalar(1.13);
-      orb.add(rim);
+      const shine = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.22, 12, 8), new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.9 }));
+      shine.position.set(-radius * 0.38, radius * 0.4, radius * 0.75);
+      orb.add(rim, shine);
       orb.position.set(-2.1 + i * 1.4, 3.95, -1.2);
       this.scene.add(orb);
       this.orbs.push(orb);
-      const label = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthWrite: false }));
-      label.position.copy(orb.position).add(new THREE.Vector3(0, 0, 0.5));
-      label.scale.set(0.7, 0.7, 1);
-      this.scene.add(label);
-      this.orbLabels.push(label);
     }
-  }
-
-  setChant(labels: string[]): void {
-    labels.forEach((text, i) => {
-      const c = document.createElement("canvas");
-      c.width = c.height = 128;
-      const g = c.getContext("2d")!;
-      g.font = `900 ${text.length > 1 ? 52 : 64}px "M PLUS Rounded 1c", "Noto Sans SC", sans-serif`;
-      g.textAlign = "center";
-      g.textBaseline = "middle";
-      g.lineWidth = 10;
-      g.strokeStyle = "rgba(31,42,68,0.85)";
-      g.strokeText(text, 64, 68);
-      g.fillStyle = "#ffffff";
-      g.fillText(text, 64, 68);
-      const tex = new THREE.CanvasTexture(c);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      const mat = this.orbLabels[i].material as THREE.SpriteMaterial;
-      mat.map?.dispose();
-      mat.map = tex;
-      mat.needsUpdate = true;
-    });
   }
 
   private buildBubbles(): { points: THREE.Points; speeds: Float32Array } {
@@ -762,10 +737,9 @@ export class Stage {
       this.orbLevel[i] *= i === 3 ? 0.9 : 0.995;
       const mat = orb.material as THREE.MeshStandardMaterial;
       mat.emissive.lerp(this.orbColor[i], 0.3);
-      mat.emissiveIntensity = 0.08 + this.orbLevel[i];
-      orb.scale.setScalar(1 + 0.15 * Math.min(1, this.orbLevel[i]));
+      mat.emissiveIntensity = 0.2 + 0.7 * Math.min(1.6, this.orbLevel[i]);
+      orb.scale.setScalar(1 + 0.2 * Math.min(1, this.orbLevel[i]));
       orb.position.y = 3.95 + Math.sin(performance.now() / 600 + i) * 0.06;
-      this.orbLabels[i].position.y = orb.position.y;
     });
     const ringMat = this.ring.material as THREE.MeshStandardMaterial;
     ringMat.emissiveIntensity += (0.6 - ringMat.emissiveIntensity) * Math.min(1, dt * 4);

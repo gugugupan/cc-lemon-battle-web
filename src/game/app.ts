@@ -84,7 +84,6 @@ export class App {
 
   private applyLang(): void {
     setLang(currentLang());
-    this.stage.setChant(t("chant").split(","));
   }
 
   private frame(dt: number): void {
