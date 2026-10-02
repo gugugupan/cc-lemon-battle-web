@@ -43,6 +43,8 @@ export interface EnemySpec {
   ai: AiParams;
   relics: Relic[];
   bpm: number;
+  /** The boss (レモン仙人): at half HP it gets serious — more relics, a faster tempo, a sharper brain. */
+  boss?: { relics: Relic[]; bpmAdd: number; ai: AiParams };
 }
 
 export interface BattleOptions {
@@ -77,6 +79,8 @@ export type BattleEvent =
   | { type: "item"; slot: number; item: Consumable; grade: Grade; reports: EffectReport[]; fumbled?: boolean }
   /** The player may only guard next bar (or no longer has to). */
   | { type: "stun"; on: boolean }
+  /** The boss reached half HP and pulled out its hidden relics. */
+  | { type: "phase"; relics: Relic[]; bpmAdd: number }
   | { type: "combo"; combo: number; fever: boolean; threshold: number }
   | { type: "fever"; on: boolean }
   | { type: "wait" }
@@ -106,7 +110,11 @@ export class Battle {
   readonly player: Fighter;
   readonly enemy: Fighter;
   readonly mods: Modifiers;
-  readonly enemyMods: Modifiers;
+  enemyMods: Modifiers;
+  /** The enemy's relics in play (the boss adds more at half HP). */
+  enemyRelicList: Relic[];
+  private ai: AiParams;
+  private serious = false;
   readonly options: BattleOptions;
   readonly feverThreshold: number;
   /** Tempo for this fight after both sides' relics. */
@@ -155,6 +163,8 @@ export class Battle {
     this.feverThreshold = Math.max(1, FEVER_THRESHOLD + this.mods.feverThresholdAdd + enemyMods.feverThresholdAdd);
     this.playerRelics = new RelicRunner(loadout.relics);
     this.enemyRelics = new RelicRunner(spec.relics);
+    this.enemyRelicList = [...spec.relics];
+    this.ai = spec.ai;
   }
 
   /** Energy the player's action costs after relics (negative = gives energy). */
@@ -368,7 +378,7 @@ export class Battle {
   private decideEnemy(): ActionId {
     const script = this.options.enemyScript;
     if (script) return canAfford(this.enemy, script) ? script : "charge";
-    return decide(this.enemy, this.player, this.playerHistory, this.spec.ai, this.rng, { lastHit: this.enemyLastHit, lastGuarded: this.enemyLastGuarded });
+    return decide(this.enemy, this.player, this.playerHistory, this.ai, this.rng, { lastHit: this.enemyLastHit, lastGuarded: this.enemyLastGuarded });
   }
 
   private trackPerfect(grade: Grade): void {
@@ -438,8 +448,21 @@ export class Battle {
       return;
     }
     const w = winnerOf(this.player, this.enemy);
-    if (w === null) return;
+    if (w === null) return this.checkSerious();
     this.winner = w;
     this.emit({ type: "finished", winner: w });
+  }
+
+  private checkSerious(): void {
+    const boss = this.spec.boss;
+    if (!boss || this.serious || this.enemy.hp > this.enemy.maxHp / 2) return;
+    this.serious = true;
+    const before = this.enemyMods;
+    this.enemyRelicList = [...this.enemyRelicList, ...boss.relics];
+    this.enemyMods = combineMods(this.enemyRelicList);
+    this.enemy.maxEnergy += this.enemyMods.maxEnergyAdd - before.maxEnergyAdd;
+    this.enemyRelics = new RelicRunner(this.enemyRelicList);
+    this.ai = boss.ai;
+    this.emit({ type: "phase", relics: boss.relics, bpmAdd: boss.bpmAdd });
   }
 }

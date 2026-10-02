@@ -209,6 +209,38 @@ describe("run", () => {
     expect(enemyFor(10, rng).maxEnergy).toBe(4);
   });
 
+  it("makes レモン仙人 the boss of every 20th fight, with more hidden relics each visit", () => {
+    const rng = new Rng(9);
+    expect(enemyFor(19, rng).boss).toBeUndefined();
+    const first = enemyFor(20, rng);
+    const second = enemyFor(40, rng);
+    expect(first.boss?.relics.length).toBe(2);
+    expect(second.boss?.relics.length).toBe(3);
+    expect(first.elite).toBe(true);
+    expect(first.relics.some((r) => first.boss!.relics.includes(r))).toBe(false);
+  });
+
+  it("the boss gets serious at half HP: hidden relics come out once", () => {
+    const spec = enemyFor(20, new Rng(9));
+    spec.tellChance = 0;
+    const events: BattleEvent[] = [];
+    const battle = new Battle(spec, { hp: 9, maxHp: 9, relics: [], slots: [] }, new Rng(3), (e) => events.push(e));
+    battle.start();
+    const before = battle.enemyRelicList.length;
+    const energyCap = battle.enemy.maxEnergy;
+    battle.enemy.hp = Math.floor(battle.enemy.maxHp / 2);
+    battle.useItem(0, 5, 0.5);
+    for (let b = 0; b < 8; b++) {
+      battle.onBeat(b);
+      if (b === 7) battle.pressAction("guard", b, 0.5);
+      battle.onOffbeat(b);
+    }
+    const phases = events.filter((e) => e.type === "phase");
+    expect(phases.length).toBe(1);
+    expect(battle.enemyRelicList.length).toBe(before + spec.boss!.relics.length);
+    expect(battle.enemy.maxEnergy).toBe(energyCap + 1);
+  });
+
   it("makes more enemies impatient from fight 6, all of them from fight 15", () => {
     expect([5, 6, 15, 30].map(impatientChance)).toEqual([0, 0.3, 1, 1]);
     const rng = new Rng(8);

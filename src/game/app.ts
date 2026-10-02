@@ -248,7 +248,8 @@ export class App {
     const run = this.run!;
     const spec = run.enemy;
     const battle = new Battle(spec, run.loadout(), new Rng(), (e) => this.onEvent(e));
-    this.mountBattle(battle, enemyName(spec), `${personalityName(spec)}${spec.elite ? ` ${t("eliteTag")}` : ""}`, roundLabel(run));
+    const tag = spec.boss ? t("bossTag") : `${personalityName(spec)}${spec.elite ? ` ${t("eliteTag")}` : ""}`;
+    this.mountBattle(battle, enemyName(spec), tag, roundLabel(run));
   }
 
   /** Shows a battle on the HUD and starts its beat. */
@@ -492,6 +493,21 @@ export class App {
       case "tell":
         this.hud.tell(e.hidden ? t("tellHidden") : this.tellLine(e.action), e.forced);
         break;
+      case "phase": {
+        this.hud.setRelics("enemy", battle.enemyRelicList);
+        this.stage.shake(16);
+        this.stage.sparks(this.stage.chest("enemy"), "#ffd43b", 60, 6);
+        synth.fever();
+        const at = this.stage.screenOf("enemy", 2.9);
+        this.hud.popup(t("bossSerious"), at.x, at.y - 30, "outcome boss");
+        const next = Math.min(MAX_BPM, this.clock.bpm + e.bpmAdd);
+        const bar = Math.floor(this.clock.heardBeat() / 4) + 2;
+        this.clock.setBpmAt(bar * 4, next);
+        if (this.music.playing) this.music.setBpmAt(bar * 4, next);
+        this.pendingTempo = { bar, bpm: next };
+        this.baseBpm += e.bpmAdd;
+        break;
+      }
       case "stun": {
         this.hud.setGuardOnly(e.on);
         if (e.on) {

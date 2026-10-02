@@ -63,6 +63,11 @@ export const IMPATIENT_FROM = 6;
 /** …rising evenly to every enemy from this fight on. */
 export const IMPATIENT_ALWAYS_FROM = 15;
 
+/** Every n-th fight is the boss, レモン仙人 (the goal fight, then again and again in endless mode). */
+export const BOSS_EVERY = GOAL_ROUNDS;
+export const BOSS_MODEL = "character-male-e";
+export const BOSS_COLOR = "#ffd43b";
+
 export function impatientChance(n: number): number {
   if (n < IMPATIENT_FROM) return 0;
   return Math.min(1, 0.3 + (0.7 * (n - IMPATIENT_FROM)) / (IMPATIENT_ALWAYS_FROM - IMPATIENT_FROM));
@@ -90,6 +95,32 @@ function personalityFor(n: number, rng: Rng): Personality {
  * and more enemies are impatient (they act even when the player waits), all of them from the 15th.
  */
 export function enemyFor(n: number, rng: Rng, playerModel = ""): EnemySpec {
+  const spec = regularEnemy(n, rng, playerModel);
+  return n % BOSS_EVERY === 0 ? asBoss(spec, n) : spec;
+}
+
+/**
+ * The boss keeps the stage's stats with 1 more HP and the reader's brain. At half HP it pulls out
+ * two hidden relics (one more each later visit), speeds up by 15 BPM and turns aggressive.
+ */
+function asBoss(spec: EnemySpec, n: number): EnemySpec {
+  const visit = n / BOSS_EVERY;
+  const hidden = ["power_bank", "iron_wall", "fang", "boxing_gloves"].slice(0, 1 + visit).map((id) => ENEMY_RELICS.find((r) => r.id === id)!);
+  const p = PERSONALITY_TUNING.reader;
+  return {
+    ...spec,
+    personality: "reader",
+    elite: true,
+    model: BOSS_MODEL,
+    color: BOSS_COLOR,
+    maxHp: spec.maxHp + visit,
+    relics: spec.relics.filter((r) => !hidden.includes(r)),
+    ai: { ...spec.ai, readSkill: Math.min(1.3, 0.3 + 0.04 * (n - 1)) * p.readSkill, randomness: spec.ai.randomness * p.randomness, historyWindow: p.historyWindow },
+    boss: { relics: hidden, bpmAdd: 15, ai: { ...spec.ai, aggression: spec.ai.aggression * 1.15, randomness: 0.05, readSkill: 1.3, specialBias: 1.2 } },
+  };
+}
+
+function regularEnemy(n: number, rng: Rng, playerModel: string): EnemySpec {
   const k = n - 1;
   const elite = n % ELITE_EVERY === 0;
   const relicCount = Math.min(MAX_ENEMY_RELICS, Math.max(0, Math.floor((k - 1) / 5)) + (elite && n >= 10 ? 1 : 0));

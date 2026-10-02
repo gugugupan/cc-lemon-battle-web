@@ -33,6 +33,7 @@ function formatDate(iso: string): string {
 }
 
 export function enemyName(spec: EnemySpec): string {
+  if (spec.boss) return t("tut_sennin");
   return t(`name${spec.nameIndex}` as Parameters<typeof t>[0]);
 }
 
@@ -357,7 +358,7 @@ export class Screens {
     const stats = enemyStats(e);
     const relics = e.relics.length ? e.relics.map(itemRow).join("") : `<p class="muted">${t("none")}</p>`;
     const panel = h(`<div class="panel intro-panel ${e.elite ? "elite" : ""}" style="--accent:${e.color}">
-      <div class="intro-head"><span class="vs">${e.elite ? `<span class="elite-tag">⚠ ${t("eliteTag")}</span>` : t("introVs")}</span><span class="round-chip">${roundLabel(run)}</span></div>
+      <div class="intro-head"><span class="vs">${e.boss ? `<span class="elite-tag">👑 ${t("bossTag")}</span>` : e.elite ? `<span class="elite-tag">⚠ ${t("eliteTag")}</span>` : t("introVs")}</span><span class="round-chip">${roundLabel(run)}</span></div>
       <div class="intro-body">
         <div class="avatar" style="background:${e.color}"><span>${PERSONALITY_ICONS[e.personality]}</span></div>
         <div class="intro-info">
@@ -373,6 +374,7 @@ export class Screens {
           </dl>
         </div>
       </div>
+      ${e.boss ? `<p class="boss-note">⚠ ${t("bossHint", e.boss.relics.length)}</p>` : ""}
       <h3>${t("relics")}</h3><div class="item-list">${relics}</div>
       <p class="muted center">${t("tapToStart")}</p>
     </div>`);

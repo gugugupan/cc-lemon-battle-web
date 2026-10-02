@@ -233,6 +233,19 @@ i.lemon.empty {
   gap: 6px;
 }
 
+.boss-note {
+  font-weight: 900;
+  color: #e8590c;
+  background: #fff4e6;
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+
+.popup.outcome.boss {
+  font-size: 34px;
+  color: #f08c00;
+}
+
 .run-summary {
   margin-top: 14px;
   text-align: left;
