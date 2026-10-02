@@ -233,6 +233,74 @@ i.lemon.empty {
   gap: 6px;
 }
 
+.run-summary {
+  margin-top: 14px;
+  text-align: left;
+}
+
+.sum-head {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 900;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.stat-tile {
+  background: #fff;
+  border-radius: 14px;
+  padding: 8px 10px;
+  box-shadow: 0 2px 0 var(--line);
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-tile b {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-tile span {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+
+.killer {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: #fff;
+  border-radius: 16px;
+  padding: 10px 12px;
+  border-left: 6px solid var(--accent);
+}
+
+.killer-name {
+  font-weight: 900;
+}
+
+.avatar.small {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  font-size: 26px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
 .round-row {
   display: flex;
   align-items: center;

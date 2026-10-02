@@ -1,6 +1,6 @@
 import { DEFAULT_AI, type Personality, PERSONALITY_TUNING } from "./ai";
 import { type Character, CHARACTERS, startItems, startRelics } from "./characters";
-import type { EnemySpec, Loadout } from "./battle";
+import type { BattleEvent, EnemySpec, Loadout } from "./battle";
 import { type Consumable, CONSUMABLES, ENEMY_RELICS, type Item, type Relic, RELICS } from "./items";
 import { Rng } from "./rng";
 
@@ -35,6 +35,17 @@ export type Purchase = "ok" | "no_gold" | "bag_full" | "sold_out" | "maxed";
 /** What the shop pays back for an owned item: half its price, at least 5. */
 export function sellPrice(item: Item): number {
   return Math.max(5, Math.floor(item.price / 2));
+}
+
+/** What the end-of-run summary shows. */
+export interface RunStats {
+  bestCombo: number;
+  /** Graded presses (actions and items) and how many were Perfect. */
+  judged: number;
+  perfects: number;
+  damageDealt: number;
+  damageTaken: number;
+  fevers: number;
 }
 
 export interface StockEntry {
@@ -135,6 +146,7 @@ export class Run {
   relicPick: Relic[] = [];
   /** Whether this shop visit's chest has been bought. */
   chestSold = false;
+  readonly stats: RunStats = { bestCombo: 0, judged: 0, perfects: 0, damageDealt: 0, damageTaken: 0, fevers: 0 };
   /** Called after every purchase and every relic taken from a chest (for item-based unlocks). */
   onPurchase: (item: Item) => void = () => {};
 
@@ -146,6 +158,38 @@ export class Run {
     this.relics = startRelics(character);
     startItems(character).forEach((item, i) => (this.slots[i] = item));
     this.enemy = enemyFor(this.round, this.rng, character.model);
+  }
+
+  /** Adds a fight's event to the run's stats. */
+  record(e: BattleEvent): void {
+    const s = this.stats;
+    const hurt = (side: "self" | "foe", amount: number, mine: boolean) => {
+      if ((side === "foe") === mine) s.damageDealt += amount;
+      else s.damageTaken += amount;
+    };
+    switch (e.type) {
+      case "judge":
+        s.judged++;
+        if (e.grade === "perfect") s.perfects++;
+        break;
+      case "combo":
+        s.bestCombo = Math.max(s.bestCombo, e.combo);
+        break;
+      case "fever":
+        if (e.on) s.fevers++;
+        break;
+      case "reveal":
+        s.damageDealt += e.result.player.damageDealt;
+        s.damageTaken += e.result.player.damageTaken;
+        break;
+      case "notice":
+      case "item": {
+        const reports = e.type === "notice" ? e.notice.reports : e.reports;
+        const mine = e.type === "item" || e.side === "player";
+        for (const r of reports) if (r.type === "damage" || r.type === "hurtSelf") hurt(r.side, r.amount, mine);
+        break;
+      }
+    }
   }
 
   get wins(): number {

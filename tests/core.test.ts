@@ -298,6 +298,26 @@ describe("run", () => {
     expect(run.chestPrice()).toBe(50);
   });
 
+  it("adds up a run's stats from fight events", () => {
+    const run = new Run(1);
+    const spec = enemyFor(1, new Rng(1));
+    spec.tellChance = 0;
+    const battle = new Battle(spec, run.loadout(), new Rng(2), (e) => run.record(e));
+    battle.start();
+    const spb = 60 / battle.bpm;
+    for (let b = 0; b < 40 && !battle.finished; b++) {
+      battle.onBeat(b);
+      if (b % 4 === 3) battle.pressAction(battle.player.energy > 0 ? "attack" : "charge", b, spb);
+      battle.onOffbeat(b);
+    }
+    const s = run.stats;
+    expect(s.judged).toBeGreaterThan(0);
+    expect(s.perfects).toBe(s.judged);
+    expect(s.bestCombo).toBeGreaterThan(0);
+    expect(s.damageDealt + s.damageTaken).toBeGreaterThan(0);
+    expect(s.damageTaken).toBe(5 - battle.player.hp);
+  });
+
   it("raises the chest price with every relic owned", () => {
     const run = new Run(1);
     const prices = [0, 2, 4, 8].map((n) => {

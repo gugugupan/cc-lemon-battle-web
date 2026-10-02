@@ -477,6 +477,7 @@ export class App {
 
   private onEvent(e: BattleEvent): void {
     this.tutorialEvent(e);
+    if (!this.tut) this.run?.record(e);
     const battle = this.battle!;
     const synth = this.clock.synth;
     switch (e.type) {
@@ -742,7 +743,7 @@ export class App {
     }
     this.clock.synth.lose();
     const newBest = saveBestFor(run.character.id, run.wins);
-    this.screens.gameOver(run.wins, newBest, this.newUnlocks(), () => this.startRun(), () => this.showTitle());
+    this.screens.gameOver(run, newBest, this.newUnlocks(), () => this.startRun(), () => this.showTitle());
   }
 
   /** The goal fight is won: confetti, then the choice to stop here or keep going endlessly. */
@@ -756,6 +757,7 @@ export class App {
     window.setTimeout(() => {
       this.screens.cleared(
         record,
+        run,
         this.newUnlocks(),
         () => this.showTitle(),
         () => {

@@ -379,7 +379,7 @@ export class Screens {
     this.show(panel, [{ label: t("fight"), onClick: onFight, primary: true }], "dim");
   }
 
-  cleared(record: ClearRecord, unlockedNames: string[], onEnd: () => void, onEndless: () => void): void {
+  cleared(record: ClearRecord, run: Run, unlockedNames: string[], onEnd: () => void, onEndless: () => void): void {
     const letters = [...t("clearTitle")].map((c, i) => `<span style="animation-delay:${i * 0.08}s">${escape(c)}</span>`).join("");
     const panel = h(`<div class="panel banner-panel clear-panel">
       <div class="trophy">🏆</div>
@@ -388,7 +388,9 @@ export class Screens {
       <p class="muted">${t("clearCount", record.count)}</p>
       <p class="muted small">${t("clearEndlessHint")}</p>
       ${unlockedNames.map((n) => `<p class="unlock-note">${escape(t("unlockedNew", n))}</p>`).join("")}
+      ${runSummary(run, false)}
     </div>`);
+    this.attachSummaryTips(panel, run);
     this.show(panel, [
       { label: t("clearEndless"), onClick: onEndless, primary: true },
       { label: t("clearEnd"), onClick: onEnd },
@@ -588,12 +590,47 @@ export class Screens {
     render();
   }
 
-  gameOver(wins: number, newBest: boolean, unlockedNames: string[], onAgain: () => void, onTitle: () => void): void {
+  gameOver(run: Run, newBest: boolean, unlockedNames: string[], onAgain: () => void, onTitle: () => void): void {
     const unlocks = unlockedNames.map((n) => `<p class="unlock-note">${escape(t("unlockedNew", n))}</p>`).join("");
-    const panel = h(`<div class="panel banner-panel lose"><h1>${t("gameOver")}</h1><p>${t("result", wins)}</p>${newBest ? `<p class="new-best">${t("newBest")}</p>` : ""}${unlocks}</div>`);
+    const panel = h(`<div class="panel banner-panel lose summary-panel"><h1>${t("gameOver")}</h1><p>${t("result", run.wins)}</p>${newBest ? `<p class="new-best">${t("newBest")}</p>` : ""}${unlocks}${runSummary(run, true)}</div>`);
+    this.attachSummaryTips(panel, run);
     this.show(panel, [
       { label: t("again"), onClick: onAgain, primary: true },
       { label: t("toTitle"), onClick: onTitle },
-    ], "dim");
+    ], "dim scroll");
   }
+
+  private attachSummaryTips(panel: HTMLElement, run: Run): void {
+    const items: Item[] = [...run.relics, ...run.enemy.relics, ...run.slots.filter((s): s is NonNullable<typeof s> => !!s)];
+    panel.querySelectorAll<HTMLElement>("[data-tip]").forEach((chip) => {
+      const item = items.find((i) => i.id === chip.dataset.tip);
+      if (item) attachTooltip(chip, item);
+    });
+  }
+}
+
+/** Stats, kit and (after a loss) the enemy that ended the run. */
+function runSummary(run: Run, lost: boolean): string {
+  const s = run.stats;
+  const chip = (i: Item) => `<span class="relic-chip" data-tip="${i.id}">${i.icon}</span>`;
+  const kit = [...run.relics, ...run.slots.filter((x): x is NonNullable<typeof x> => !!x)];
+  const tile = (value: string | number, label: string) => `<div class="stat-tile"><b>${value}</b><span>${label}</span></div>`;
+  const e = run.enemy;
+  const killer = lost
+    ? `<h3>${t("sumDefeatedBy")}</h3><div class="killer" style="--accent:${e.color}"><span class="avatar small" style="background:${e.color}">${PERSONALITY_ICONS[e.personality]}</span>
+        <div><div class="killer-name">${escape(enemyName(e))}</div><div class="muted small">${escape(personalityName(e))}${e.elite ? ` ・ ${t("eliteTag")}` : ""}</div>
+        <div class="chips">${e.relics.map(chip).join("") || `<span class="muted small">${t("none")}</span>`}</div></div></div>`
+    : "";
+  return `<div class="run-summary">
+    <div class="sum-head"><span>${escape(t(`char_${run.character.id}` as Parameters<typeof t>[0]))}</span><span>${roundLabel(run)}</span></div>
+    <div class="stat-grid">
+      ${tile(s.bestCombo, t("sumCombo"))}
+      ${tile(s.judged ? `${Math.round((s.perfects / s.judged) * 100)}%` : "—", t("sumPerfect"))}
+      ${tile(s.damageDealt, t("sumDealt"))}
+      ${tile(s.damageTaken, t("sumTaken"))}
+      ${tile(s.fevers, t("sumFever"))}
+    </div>
+    ${killer}
+    <h3>${t("sumKit")}</h3><div class="chips">${kit.map(chip).join("") || `<span class="muted small">${t("none")}</span>`}</div>
+  </div>`;
 }
