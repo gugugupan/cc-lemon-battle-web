@@ -360,6 +360,10 @@ src/game/        app.ts（把所有东西串起来）、progress.ts（localStora
 tests/           vitest；runs.sim.test.ts 只在 npm run sim:runs 时执行
 ```
 
+### 首屏加载
+- `index.html` 内联了一个柠檬加载画面；`src/main.ts` 用动态 import 载入游戏本体，载完后淡出加载画面。
+- `vite.config.ts` 用 rolldown 的 `advancedChunks` 把 three.js 拆成单独的 chunk（约 630KB / gzip 159KB），游戏代码更新时可以继续用缓存；入口只有约 2KB。
+
 ## 13. 测试与平衡工具
 
 模拟器在 `src/core/sim.ts`，玩家用 `PlayerModel` 描述：

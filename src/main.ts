@@ -1,9 +1,15 @@
 import "./style.css";
-import { App } from "./game/app";
-import { applyHudScale } from "./view/hud";
 
-applyHudScale();
-window.addEventListener("resize", applyHudScale);
+/** The game (three.js and all) loads after the splash in index.html is on screen. */
+async function boot(): Promise<void> {
+  const [{ App }, { applyHudScale }] = await Promise.all([import("./game/app"), import("./view/hud")]);
+  applyHudScale();
+  window.addEventListener("resize", applyHudScale);
+  const app = new App(document.getElementById("app")!);
+  if (import.meta.env.DEV) Object.assign(window, { app });
+  const splash = document.getElementById("splash");
+  splash?.classList.add("gone");
+  splash?.addEventListener("transitionend", () => splash.remove());
+}
 
-const app = new App(document.getElementById("app")!);
-if (import.meta.env.DEV) Object.assign(window, { app });
+void boot();

@@ -8,8 +8,42 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800;900&family=Noto+Sans+SC:wght@500;700;900&display=swap" rel="stylesheet" />
+    <style>
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(#5cc8ff, #b8f5e6);
+        font-family: "M PLUS Rounded 1c", "Noto Sans SC", system-ui, sans-serif;
+        color: #1f2a44;
+        transition: opacity 0.4s;
+      }
+      #splash.gone {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #splash .lemon {
+        font-size: 72px;
+        display: block;
+        text-align: center;
+        animation: splash-bob 0.9s ease-in-out infinite;
+      }
+      #splash p {
+        margin: 8px 0 0;
+        font-weight: 900;
+        letter-spacing: 0.1em;
+      }
+      @keyframes splash-bob {
+        50% {
+          transform: translateY(-12px) rotate(-10deg);
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="splash"><div><span class="lemon">🍋</span><p>C・C・レ・モン…</p></div></div>
     <div id="app"><canvas id="stage"></canvas></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
