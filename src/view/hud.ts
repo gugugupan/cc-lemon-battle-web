@@ -282,7 +282,7 @@ export class Hud {
       this.dialogueBox.classList.add("hidden");
       return;
     }
-    this.dialogueBox.innerHTML = `<div class="dialogue-face">🍋</div><div class="dialogue-body"><div class="dialogue-name">${t("tut_sennin")}</div><div class="dialogue-text"></div><div class="dialogue-next">${t("tut_next")}</div></div>`;
+    this.dialogueBox.innerHTML = `<div class="dialogue-face">🍋</div><div class="dialogue-body"><div class="dialogue-name">${t("tut_sennin")}</div><div class="dialogue-text"></div><div class="dialogue-next">${t(window.matchMedia?.("(pointer: coarse)").matches ? "tut_next_touch" : "tut_next")}</div></div>`;
     this.dialogueBox.querySelector(".dialogue-text")!.textContent = text;
     this.dialogueBox.classList.remove("hidden");
   }

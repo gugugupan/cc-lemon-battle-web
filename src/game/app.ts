@@ -7,7 +7,7 @@ import { type Character, CHARACTERS, characterById, isUnlocked } from "../core/c
 import { enemyFor, Run, tellVariety } from "../core/run";
 import { STRONG_HINT_AFTER, TUTORIAL_BPM, TUTORIAL_STEPS, type TutorialInput, type TutorialStep, TutorialTracker } from "../core/tutorial";
 import { type Consumable, type EffectReport, itemById } from "../core/items";
-import { currentLang, setLang, t } from "../i18n";
+import { currentLang, hasKey, setLang, t } from "../i18n";
 import { Hud, itemName } from "../view/hud";
 import { enemyName, personalityName, roundLabel, Screens } from "../view/screens";
 import {
@@ -325,7 +325,7 @@ export class App {
     tut.tracker = null;
     this.hud.hint(null);
     this.hud.focus(null);
-    this.hud.dialogue(t(step.lines[0] as Parameters<typeof t>[0]));
+    this.hud.dialogue(this.tutText(step.lines[0]));
   }
 
   /** Enter during the guide's lines: next line, then practice (or the next step). */
@@ -335,7 +335,7 @@ export class App {
     const step = TUTORIAL_STEPS[tut.index];
     if (tut.line < step.lines.length - 1) {
       tut.line++;
-      this.hud.dialogue(t(step.lines[tut.line] as Parameters<typeof t>[0]));
+      this.hud.dialogue(this.tutText(step.lines[tut.line]));
       this.clock.synth.ui();
       return;
     }
@@ -384,7 +384,7 @@ export class App {
     tut.tracker = new TutorialTracker(step);
     tut.fails = 0;
     tut.practicing = true;
-    this.hud.hint(t(step.hint as Parameters<typeof t>[0]));
+    this.hud.hint(this.tutText(step.hint));
     this.hud.focus(step.focus ?? null);
     this.mountBattle(battle, fight ? enemyName(spec) : t("tut_dummy"), "", t("tutorial"), TUTORIAL_BPM);
   }
@@ -418,7 +418,7 @@ export class App {
       return;
     }
     tut.fails++;
-    if (tut.fails >= STRONG_HINT_AFTER) this.hud.hint(`${t(step.hint as Parameters<typeof t>[0])}　${t("tut_strong")}`, true);
+    if (tut.fails >= STRONG_HINT_AFTER) this.hud.hint(`${this.tutText(step.hint)}　${t("tut_strong")}`, true);
   }
 
   /** Blocks inputs the current step doesn't teach. Returns true when the press may go through. */
@@ -429,7 +429,7 @@ export class App {
     const step = TUTORIAL_STEPS[tut.index];
     if (step.allowed.includes(input)) return true;
     this.hud.hint(t("tut_blocked"), true);
-    window.setTimeout(() => tut.practicing && this.hud.hint(t(step.hint as Parameters<typeof t>[0])), 900);
+    window.setTimeout(() => tut.practicing && this.hud.hint(this.tutText(step.hint)), 900);
     if (step.goal === "wait") this.tutorialFail(step);
     return false;
   }
@@ -438,10 +438,16 @@ export class App {
     const tut = this.tut!;
     if (performance.now() - tut.exitArmed > 2000) {
       tut.exitArmed = performance.now();
-      this.hud.hint(t("tut_exit"), true);
+      this.hud.hint(this.tutText("tut_exit"), true);
       return;
     }
     this.leaveTutorial();
+  }
+
+  /** Tutorial text, using the touch wording (buttons instead of keys) on touch screens when there is one. */
+  private tutText(key: string): string {
+    const touch = window.matchMedia?.("(pointer: coarse)").matches && hasKey(`${key}_touch`);
+    return t((touch ? `${key}_touch` : key) as Parameters<typeof t>[0]);
   }
 
   private leaveTutorial(): void {
