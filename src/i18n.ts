@@ -339,6 +339,8 @@ const STRINGS = {
   item_rain_cloud_desc: { ja: "相手が FEVER 中、2 ターン決着するごとにエネルギー +1。", zh: "对手 FEVER 期间，每结算 2 回合能量 +1。" },
   item_mark: { ja: "マーク", zh: "盯防" },
   item_mark_desc: { ja: "相手が FEVER 中、攻撃が当たるとダメージ +1。", zh: "对手 FEVER 期间，打中时伤害 +1。" },
+  item_impatient: { ja: "せっかち", zh: "急性子" },
+  item_impatient_desc: { ja: "相手が様子見しても、かまわず技を出す。", zh: "就算对手观望，也照样出招。" },
   item_cold_shoulder: { ja: "シラけムード", zh: "冷场" },
   item_cold_shoulder_desc: { ja: "相手の FEVER が切れると、相手に 1 ダメージ、自分のエネルギー +1。", zh: "对手的 FEVER 中断时，对对手造成 1 伤害，自己能量 +1。" },
   item_yawn_desc: { ja: "相手が FEVER に入るのに必要なコンボ +4。", zh: "对手进入 FEVER 所需连击 +4。" },

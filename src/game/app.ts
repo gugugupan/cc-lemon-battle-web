@@ -573,7 +573,7 @@ export class App {
         synth.special();
       }
     }
-    this.stage.reveal(r.player.action, r.enemy.action, labels, { player: mark(r.player), enemy: mark(r.enemy) }, () => {
+    this.stage.reveal(r.playerIdle ? null : r.player.action, r.enemy.action, labels, { player: mark(r.player), enemy: mark(r.enemy) }, () => {
       const battle = this.battle;
       if (!battle) return;
       this.stage.scenery.jumpAll();

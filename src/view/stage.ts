@@ -517,13 +517,15 @@ export class Stage {
   }
 
   /** Throws both gesture cards to the middle; `onImpact` fires when they meet. */
-  reveal(playerAction: ActionId, enemyAction: ActionId, labels: Record<ActionId, string>, marks: { player?: string; enemy?: string }, onImpact: () => void): void {
+  /** A null player action (they waited against an impatient enemy) throws only the enemy's card. */
+  reveal(playerAction: ActionId | null, enemyAction: ActionId, labels: Record<ActionId, string>, marks: { player?: string; enemy?: string }, onImpact: () => void): void {
     this.clearCards();
-    const specs: [Side, ActionId, string | undefined][] = [
+    const specs: [Side, ActionId | null, string | undefined][] = [
       ["player", playerAction, marks.player],
       ["enemy", enemyAction, marks.enemy],
     ];
     for (const [side, action, mark] of specs) {
+      if (!action) continue;
       const dir = side === "player" ? -1 : 1;
       const card = new THREE.Mesh(
         new THREE.PlaneGeometry(1.05, 1.35),

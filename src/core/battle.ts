@@ -221,6 +221,8 @@ export class Battle {
       }
       return;
     }
+    const enemyAction = this.enemyChoice;
+    const shielded = this.shieldNext;
     this.enemyChoice = null;
     this.waitsInRow++;
     this.perfectStreak = 0;
@@ -232,6 +234,31 @@ export class Battle {
     this.fire("player", "wait", null);
     this.fire("enemy", "wait", null);
     this.checkWinner();
+    if (this.enemyMods.actsOnWait && enemyAction && !this.finished) this.resolveIdle(enemyAction, bar, shielded);
+  }
+
+  /** An impatient enemy plays its move against a player who did nothing this bar. */
+  private resolveIdle(enemyAction: ActionId, bar: number, shielded: boolean): void {
+    const result = resolve(this.player, "guard", this.enemy, enemyAction, {
+      enemyDamageBonus: this.enemyMods.damageBonus,
+      enemyGuardBonus: this.enemyMods.guardDefenseAdd,
+      playerCanGuard: false,
+      enemyNullified: this.nullifyNext,
+      playerShielded: shielded,
+      enemyChargeBonus: this.spec.chargeBonus,
+    });
+    result.playerIdle = true;
+    this.nullifyNext = false;
+    this.pendingRound = result;
+    this.enemyLastHit = result.enemy.damageDealt > 0;
+    this.enemyLastGuarded = false;
+    this.emit({ type: "reveal", result });
+    if (this.options.restBars) {
+      this.restBars.add(bar + 1);
+    } else {
+      this.checkWinner();
+      this.settleRound();
+    }
   }
 
   /** Returns the grade, or null when the press didn't count (wrong beat, rest bar, already acted). */

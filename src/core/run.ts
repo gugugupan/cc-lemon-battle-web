@@ -47,6 +47,15 @@ export const ELITE_EVERY = 5;
 /** From this fight on every enemy gets +1 energy per charge (chargers always do). */
 export const STRONG_CHARGE_FROM = 15;
 export const RELIC_PICK_SIZE = 3;
+/** The impatient relic (enemy acts while the player waits): 30% of enemies at this fight… */
+export const IMPATIENT_FROM = 6;
+/** …rising evenly to every enemy from this fight on. */
+export const IMPATIENT_ALWAYS_FROM = 15;
+
+export function impatientChance(n: number): number {
+  if (n < IMPATIENT_FROM) return 0;
+  return Math.min(1, 0.3 + (0.7 * (n - IMPATIENT_FROM)) / (IMPATIENT_ALWAYS_FROM - IMPATIENT_FROM));
+}
 /** The shop's treasure chest: one per visit, opens to a relic pick; dearer for every relic owned. */
 export const CHEST_PRICE = 45;
 export const CHEST_PRICE_STEP = 0.15;
@@ -66,7 +75,8 @@ function personalityFor(n: number, rng: Rng): Personality {
  * Enemy for the n-th fight (1-based). Everything ramps with n: more HP, faster tempo, a sharper
  * and more aggressive brain, fewer tells, more energy, and a relic from the seventh fight on (one
  * more every fifth fight, up to six), drawn from stronger tiers as the run goes. Each enemy has
- * a personality that bends its brain; every fifth fight is an elite.
+ * a personality that bends its brain; every fifth fight is an elite. From the sixth fight more
+ * and more enemies are impatient (they act even when the player waits), all of them from the 15th.
  */
 export function enemyFor(n: number, rng: Rng, playerModel = ""): EnemySpec {
   const k = n - 1;
@@ -100,7 +110,10 @@ export function enemyFor(n: number, rng: Rng, playerModel = ""): EnemySpec {
       counterBias: p.counterBias,
       historyWindow: p.historyWindow,
     },
-    relics: rng.shuffle(ENEMY_RELICS.filter((r) => (r.tier ?? 1) <= tier)).slice(0, relicCount),
+    relics: [
+      ...rng.shuffle(ENEMY_RELICS.filter((r) => (r.tier ?? 1) <= tier && r.id !== "impatient")).slice(0, relicCount),
+      ...(rng.chance(impatientChance(n)) ? ENEMY_RELICS.filter((r) => r.id === "impatient") : []),
+    ],
     bpm: Math.min(156, 92 + 3 * k + (elite ? 6 : 0)),
   };
 }

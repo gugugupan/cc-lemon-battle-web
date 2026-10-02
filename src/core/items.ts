@@ -91,6 +91,8 @@ export interface Modifiers {
   restBars: boolean;
   /** Carried by the player: added to the special's energy cost. */
   specialCostAdd: number;
+  /** Carried by an enemy: it still plays its move when the player waits. */
+  actsOnWait: boolean;
 }
 
 export const NEUTRAL_MODS: Modifiers = {
@@ -111,6 +113,7 @@ export const NEUTRAL_MODS: Modifiers = {
   locksItems: false,
   restBars: false,
   specialCostAdd: 0,
+  actsOnWait: false,
 };
 
 /** Build families for the player's items; shown in the shop and tooltips. */
@@ -225,6 +228,7 @@ export const ENEMY_RELICS: Relic[] = [
   { id: "pressure", kind: "relic", icon: "😰", price: 0, tier: 3, mods: { perfectWindowMult: 0.7 } },
   { id: "yawn", kind: "relic", icon: "🥱", price: 0, tier: 3, mods: { feverThresholdAdd: 4 } },
   { id: "mark", kind: "relic", icon: "🎯", price: 0, tier: 3, mods: { damageVsFeverAdd: 1 } },
+  { id: "impatient", kind: "relic", icon: "😤", price: 0, tier: 2, mods: { actsOnWait: true } },
   { id: "cold_shoulder", kind: "relic", icon: "🥶", price: 0, tier: 3, triggers: [{ on: "foe_fever_end", effects: [{ type: "damage", amount: 1 }, { type: "energy", amount: 1 }] }] },
 ];
 
@@ -257,6 +261,7 @@ export function combineMods(relics: readonly Relic[]): Modifiers {
     m.locksItems ||= r.mods.locksItems ?? false;
     m.restBars ||= r.mods.restBars ?? false;
     m.specialCostAdd += r.mods.specialCostAdd ?? 0;
+    m.actsOnWait ||= r.mods.actsOnWait ?? false;
   }
   return m;
 }

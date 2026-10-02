@@ -69,6 +69,8 @@ export interface RoundResult {
   player: SideOutcome;
   enemy: SideOutcome;
   clash: boolean;
+  /** The player waited and the enemy acted anyway; the player's side is an empty, whiffed move. */
+  playerIdle?: boolean;
 }
 
 export interface RoundRules {

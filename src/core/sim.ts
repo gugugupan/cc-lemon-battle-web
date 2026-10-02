@@ -146,7 +146,8 @@ function pick(strategy: Strategy, style: Style, battle: Battle, tell: ActionId |
   const me = battle.player;
   const can = (a: ActionId) => battle.costOf(a) <= me.energy;
   if (strategy === "tell_reader") {
-    if (tell === null && !style.noWait && (!waited || (style.patientWait && rng.chance(0.5)))) return null;
+    const waitOk = !style.noWait && !battle.enemyMods.actsOnWait;
+    if (tell === null && waitOk && (!waited || (style.patientWait && rng.chance(0.5)))) return null;
     if (tell === "attack" || tell === "special") return battle.mods.canGuard ? "guard" : "charge";
     if (tell === "charge") return can("special") ? "special" : can("attack") ? "attack" : "charge";
     if (tell === "guard") return can("special") ? "special" : me.energy < me.maxEnergy || style.chargeAtFull ? "charge" : "attack";

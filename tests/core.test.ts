@@ -4,7 +4,7 @@ import { Battle, type BattleEvent } from "../src/core/battle";
 import { itemById, type Consumable, type Relic, RELICS } from "../src/core/items";
 import { Rng } from "../src/core/rng";
 import { type ActionId, affordable, type Fighter, judge, resolve } from "../src/core/rules";
-import { enemyFor, Run, tellVariety } from "../src/core/run";
+import { enemyFor, impatientChance, Run, tellVariety } from "../src/core/run";
 
 const f = (energy = 0, hp = 5): Fighter => ({ hp, maxHp: 5, energy, maxEnergy: 3 });
 
@@ -196,16 +196,25 @@ describe("run", () => {
 
   it("gives enemies more relics, from stronger tiers, as the run goes on", () => {
     const rng = new Rng(3);
-    expect(enemyFor(1, rng).relics.length).toBe(0);
-    expect(enemyFor(6, rng).relics.length).toBe(0);
-    expect(enemyFor(7, rng).relics.length).toBe(1);
-    expect(enemyFor(32, rng).relics.length).toBe(6);
+    const drawn = (n: number) => enemyFor(n, rng).relics.filter((r) => r.id !== "impatient").length;
+    expect(drawn(1)).toBe(0);
+    expect(drawn(6)).toBe(0);
+    expect(drawn(7)).toBe(1);
+    expect(drawn(32)).toBe(6);
     for (let i = 0; i < 50; i++) {
       for (const r of enemyFor(5, rng).relics) expect(r.tier).toBe(1);
       for (const r of enemyFor(9, rng).relics) expect(r.tier).toBeLessThanOrEqual(2);
     }
     expect(enemyFor(12, rng).startEnergy).toBe(2);
     expect(enemyFor(10, rng).maxEnergy).toBe(4);
+  });
+
+  it("makes more enemies impatient from fight 6, all of them from fight 15", () => {
+    expect([5, 6, 15, 30].map(impatientChance)).toEqual([0, 0.3, 1, 1]);
+    const rng = new Rng(8);
+    const impatient = (n: number) => enemyFor(n, rng).relics.some((r) => r.id === "impatient");
+    expect(Array.from({ length: 40 }, () => impatient(5)).some(Boolean)).toBe(false);
+    expect(Array.from({ length: 40 }, () => impatient(15)).every(Boolean)).toBe(true);
   });
 
   it("widens the pool of tell lines as the run goes on", () => {
@@ -553,9 +562,9 @@ describe("FEVER-reactive enemy relics", () => {
 describe("build series", () => {
   const relic = (id: string) => itemById(id) as Relic;
 
-  function arena(relics: string[], slots: string[] = []) {
+  function arena(relics: string[], slots: string[] = [], enemyRelics: string[] = []) {
     const spec = enemyFor(1, new Rng(1));
-    spec.relics = [];
+    spec.relics = enemyRelics.map(relic);
     spec.tellChance = 0;
     const events: BattleEvent[] = [];
     const battle = new Battle(spec, { hp: 5, maxHp: 5, relics: relics.map(relic), slots: slots.map((id) => itemById(id) as Consumable) }, new Rng(2), (e) => events.push(e));
@@ -579,8 +588,27 @@ describe("build series", () => {
       beat += 4;
     };
     const fired = (id: string) => events.filter((e) => e.type === "notice" && e.notice.item.id === id).length;
-    return { battle, round, fired };
+    return { battle, round, fired, events };
   }
+
+  it("impatient: the enemy still plays its move when the player waits", () => {
+    const calm = arena([]);
+    calm.round(null, "attack", () => (calm.battle.enemy.energy = 1));
+    expect(calm.battle.player.hp).toBe(5);
+
+    const { battle, round, events } = arena([], ["shield_sticker"], ["impatient"]);
+    round(null, "attack", () => (battle.enemy.energy = 1));
+    expect(battle.player.hp).toBe(4);
+    expect(battle.combo).toBe(0);
+    const reveal = events.find((e) => e.type === "reveal");
+    expect(reveal?.type === "reveal" && reveal.result.playerIdle).toBe(true);
+    round(null, "charge", () => (battle.enemy.energy = 0));
+    expect(battle.enemy.energy).toBe(1);
+    round(null, "special", () => (battle.enemy.energy = 3));
+    expect(battle.player.hp).toBe(2);
+    round(null, "attack", () => (battle.enemy.energy = 1), 0);
+    expect(battle.player.hp).toBe(2);
+  });
 
   it("follow up: attack after attack hits a charging enemy for +1", () => {
     const { battle, round } = arena(["follow_up"]);
