@@ -95,7 +95,7 @@ export function enemyFor(n: number, rng: Rng, playerModel = ""): EnemySpec {
     model: rng.pick((body === "any" ? [...MODELS.male, ...MODELS.female] : MODELS[body]).filter((m) => m !== playerModel)),
     rank: Math.min(RANK_COUNT - 1, Math.floor(k / 3)),
     color: rng.pick(ENEMY_COLORS),
-    maxHp: Math.min(11, 3 + Math.floor(k / 5) - (n >= 10 ? 1 : 0) + (elite ? (n >= 10 ? 2 : 1) : 0)),
+    maxHp: Math.min(11, 3 + Math.floor(k / 5) - (n >= 10 && n < 15 ? 1 : 0) + (elite ? (n >= 10 ? 2 : 1) : 0)),
     maxEnergy: n >= 10 ? 4 : 3,
     startEnergy: n >= 12 ? 2 : n >= 6 ? 1 : 0,
     tellChance: Math.min(0.9, Math.max(0.25, 0.5 - 0.015 * k) * p.tellMult),

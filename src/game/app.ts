@@ -1,6 +1,6 @@
 import { BeatClock } from "../audio/clock";
 import { MusicPlayer, STYLES, type StyleId } from "../audio/music";
-import { Battle, type BattleEvent } from "../core/battle";
+import { Battle, type BattleEvent, MAX_BPM, MIN_BPM } from "../core/battle";
 import { Rng } from "../core/rng";
 import type { ActionId, RoundResult } from "../core/rules";
 import { type Character, CHARACTERS, characterById, isUnlocked } from "../core/characters";
@@ -31,6 +31,10 @@ const KEY_ACTIONS: Record<string, ActionId> = { ArrowRight: "attack", ArrowLeft:
 const END_DELAY_MS = 1300;
 const NORMAL_PLAYLIST: StyleId[] = ["lofi", "lofi2", "lofi3"];
 const MUSIC_VOLUME = 0.5;
+/** Sway relic: every this many bars the tempo moves by the step, never further than the max from the fight's own tempo. */
+const TEMPO_SWAY_BARS = 4;
+const TEMPO_SWAY_STEP = 8;
+const TEMPO_SWAY_MAX = 16;
 /** Beat ticks stay audible under the music so the 「モン」 beat is still easy to hear. */
 const MUSIC_TICK_LEVEL = 0.45;
 const TUTORIAL_DUMMY = "character-male-b";
@@ -42,6 +46,9 @@ export class App {
   private clock = new BeatClock();
   private music = new MusicPlayer(this.clock.ctx);
   private volume = loadVolume();
+  /** The fight's own tempo, and a tempo shift waiting for its bar (the sway relic). */
+  private baseBpm = 0;
+  private pendingTempo: { bar: number; bpm: number } | null = null;
   private playlistIndex = 0;
   private stage: Stage;
   private hud: Hud;
@@ -253,6 +260,10 @@ export class App {
     this.hud.setRelics("enemy", spec.relics);
     this.hud.setSlots(battle.loadout.slots);
     this.hud.setCombo(0, battle.feverThreshold, false);
+    this.hud.setSmoke(false);
+    this.hud.setGuardOnly(false);
+    this.baseBpm = bpm;
+    this.pendingTempo = null;
     this.clock.groove = true;
     this.clock.barSound = (bar) => (battle.isRestBar(bar) ? "rest" : "call");
     this.clock.onBeat = (b) => battle.onBeat(b);
@@ -455,11 +466,22 @@ export class App {
       case "beat":
         this.stage.beat(e.beat, e.rest);
         this.hud.beat(e.beat, e.rest);
-        if (e.beat === 0) this.hud.hideTell();
+        if (e.beat === 0) {
+          this.hud.hideTell();
+          this.disturb(battle, e.bar, e.rest);
+        }
         break;
       case "tell":
-        this.hud.tell(this.tellLine(e.action), e.forced);
+        this.hud.tell(e.hidden ? t("tellHidden") : this.tellLine(e.action), e.forced);
         break;
+      case "stun": {
+        this.hud.setGuardOnly(e.on);
+        if (e.on) {
+          const at = this.stage.screenOf("player", 2.6);
+          this.hud.popup(t("stunned"), at.x, at.y - 40, "outcome");
+        }
+        break;
+      }
       case "judge": {
         const at = this.stage.project(this.stage.cardMeet());
         this.hud.popup(t(e.grade), at.x, at.y + (e.what === "item" ? 150 : 110), `grade ${e.grade}`);
@@ -476,8 +498,14 @@ export class App {
         break;
       }
       case "item":
-        synth.item();
         this.hud.setSlots(battle.loadout.slots);
+        if (e.fumbled) {
+          synth.ui();
+          const at = this.stage.screenOf("player", 2.6);
+          this.hud.popup(`${e.item.icon} ${t("fumble")}`, at.x, at.y, "outcome");
+          break;
+        }
+        synth.item();
         this.effects("player", `${e.item.icon} ${itemName(e.item.id)}`, e.reports);
         this.hud.setStats(battle.player, battle.enemy);
         break;
@@ -502,6 +530,29 @@ export class App {
         });
         if (!this.tut) window.setTimeout(() => this.endBattle(e.winner), END_DELAY_MS);
         break;
+    }
+  }
+
+  /** Bar-start effects of enemy relics that bother the player: smoke hides the beat display, sway shifts the tempo. */
+  private disturb(battle: Battle, bar: number, rest: boolean): void {
+    const mods = battle.enemyMods;
+    this.hud.setSmoke(mods.smoke && !rest && bar % 3 === 2);
+    if (this.pendingTempo && this.pendingTempo.bar === bar) {
+      const faster = this.pendingTempo.bpm > Number(this.hud.bpmShown);
+      this.hud.setBpm(this.pendingTempo.bpm);
+      const at = this.stage.project(this.stage.cardMeet());
+      this.hud.popup(t(faster ? "tempoUp" : "tempoDown"), at.x, at.y - 110, "outcome");
+      this.pendingTempo = null;
+    }
+    if (mods.tempoSway && bar > 0 && bar % TEMPO_SWAY_BARS === TEMPO_SWAY_BARS - 1) {
+      const shift = Math.random() < 0.5 ? -TEMPO_SWAY_STEP : TEMPO_SWAY_STEP;
+      let next = this.clock.bpm + shift;
+      if (Math.abs(next - this.baseBpm) > TEMPO_SWAY_MAX) next = this.clock.bpm - shift;
+      next = Math.min(MAX_BPM, Math.max(MIN_BPM, next));
+      const beat = (bar + 1) * 4;
+      this.clock.setBpmAt(beat, next);
+      if (this.music.playing) this.music.setBpmAt(beat, next);
+      this.pendingTempo = { bar: bar + 1, bpm: next };
     }
   }
 

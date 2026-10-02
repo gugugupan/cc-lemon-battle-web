@@ -591,6 +591,53 @@ describe("build series", () => {
     return { battle, round, fired, events };
   }
 
+  it("butterfingers: items fail unless used on a Perfect", () => {
+    const { battle, round, events } = arena([], ["lemon_bomb", "lemon_bomb"], ["butterfingers"]);
+    const spb = 60 / battle.bpm;
+    round("guard", "guard");
+    for (let b = 4; b < 9; b++) battle.onBeat(b);
+    expect(battle.useItem(0, 8.3, spb)).toBe("miss");
+    expect(battle.enemy.hp).toBe(battle.enemy.maxHp);
+    expect(battle.loadout.slots[0]).toBeNull();
+    expect(events.some((e) => e.type === "item" && e.fumbled)).toBe(true);
+    expect(battle.useItem(1, 9, spb)).toBe("perfect");
+    expect(battle.enemy.hp).toBe(battle.enemy.maxHp - 2);
+  });
+
+  it("stun: after a landed special the next bar only takes a guard", () => {
+    const { battle, round, events } = arena([], [], ["stun"]);
+    round("charge", "special", () => (battle.enemy.energy = 3));
+    expect(battle.guardOnly).toBe(true);
+    expect(events.some((e) => e.type === "stun" && e.on)).toBe(true);
+    const hp = battle.enemy.hp;
+    round("attack", "charge", () => (battle.player.energy = 1));
+    expect(battle.enemy.hp).toBe(hp);
+    expect(battle.guardOnly).toBe(false);
+    round("guard", "special", () => (battle.enemy.energy = 3));
+    expect(battle.guardOnly).toBe(true);
+    round("guard", "guard");
+    expect(battle.guardOnly).toBe(false);
+  });
+
+  it("blindfold: some tells come out hidden", () => {
+    const spec = enemyFor(1, new Rng(1));
+    spec.relics = [relic("blindfold")];
+    spec.tellChance = 1;
+    const tells: boolean[] = [];
+    const battle = new Battle(spec, { hp: 5, maxHp: 5, relics: [], slots: [] }, new Rng(4), (e) => e.type === "tell" && tells.push(!!e.hidden));
+    battle.start();
+    const spb = 60 / battle.bpm;
+    for (let b = 0; b < 160; b++) {
+      battle.onBeat(b);
+      if (b % 4 === 3) battle.pressAction("guard", b, spb);
+      battle.onOffbeat(b);
+      battle.enemy.hp = battle.enemy.maxHp;
+      battle.player.hp = battle.player.maxHp;
+    }
+    expect(tells.some((h) => h)).toBe(true);
+    expect(tells.some((h) => !h)).toBe(true);
+  });
+
   it("impatient: the enemy still plays its move when the player waits", () => {
     const calm = arena([]);
     calm.round(null, "attack", () => (calm.battle.enemy.energy = 1));

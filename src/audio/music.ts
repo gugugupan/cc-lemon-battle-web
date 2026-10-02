@@ -247,6 +247,7 @@ export class MusicPlayer implements Voices {
   private timer: number | undefined;
   private nextAt = 0;
   private stepIndex = 0;
+  private tempoChange: { step: number; bpm: number } | null = null;
   style: Style = pop;
   bpm = 110;
   fever = false;
@@ -273,6 +274,7 @@ export class MusicPlayer implements Voices {
     this.stop();
     this.style = style;
     this.stepIndex = 0;
+    this.tempoChange = null;
     this.nextAt = at;
     this.timer = window.setInterval(() => this.schedule(), 25);
     this.schedule();
@@ -283,9 +285,18 @@ export class MusicPlayer implements Voices {
     this.timer = undefined;
   }
 
+  /** Changes the tempo from the given beat (counted from the start) on, in step with the beat clock. */
+  setBpmAt(beat: number, bpm: number): void {
+    this.tempoChange = { step: beat * 4, bpm };
+  }
+
   private schedule(): void {
-    const six = 60 / this.bpm / 4;
     while (this.nextAt < this.ctx.currentTime + LOOKAHEAD) {
+      if (this.tempoChange && this.stepIndex >= this.tempoChange.step) {
+        this.bpm = this.tempoChange.bpm;
+        this.tempoChange = null;
+      }
+      const six = 60 / this.bpm / 4;
       const step = this.stepIndex % 16;
       const bar = Math.floor(this.stepIndex / 16) % this.style.bars;
       const swing = step % 2 === 1 ? this.style.swing * six : 0;

@@ -1789,6 +1789,42 @@ i.lemon.empty {
   }
 }
 
+/* ---------- disturbing enemy relics ---------- */
+
+.beat-frame {
+  transition: opacity 0.25s;
+}
+
+.hud.smoky .beat-frame {
+  opacity: 0;
+}
+
+.hud.smoky .pad-beat i {
+  opacity: 0;
+}
+
+.hud.smoky .pad-beat::after {
+  content: "🌫️";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+}
+
+.pad-beat {
+  position: relative;
+}
+
+.pad-btn.stun-locked {
+  opacity: 0.3;
+  filter: grayscale(1);
+}
+
+.pad-btn.stun-only {
+  animation: tut-pulse 0.7s ease-in-out infinite;
+}
+
 /* ---------- beat cue on the pad ---------- */
 
 .pad-beat {
@@ -1813,7 +1849,7 @@ i.lemon.empty {
   place-items: center;
   font-style: normal;
   font-size: 13px;
-  transition: background 0.06s;
+  transition: background 0.06s, opacity 0.25s;
 }
 
 .pad-beat i:last-child {

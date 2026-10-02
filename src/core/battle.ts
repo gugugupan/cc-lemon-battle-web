@@ -68,11 +68,15 @@ export interface Loadout {
 
 export type BattleEvent =
   | { type: "beat"; bar: number; beat: number; rest: boolean }
-  | { type: "tell"; action: ActionId; forced: boolean }
+  /** `hidden`: an enemy's blindfold turned this tell into "???". */
+  | { type: "tell"; action: ActionId; forced: boolean; hidden?: boolean }
   | { type: "judge"; grade: Grade; delta: number; what: "action" | "item" }
   | { type: "reveal"; result: RoundResult }
   | { type: "notice"; side: "player" | "enemy"; notice: Notice }
-  | { type: "item"; slot: number; item: Consumable; grade: Grade; reports: EffectReport[] }
+  /** `fumbled`: an enemy's butterfingers made a non-Perfect item fail. */
+  | { type: "item"; slot: number; item: Consumable; grade: Grade; reports: EffectReport[]; fumbled?: boolean }
+  /** The player may only guard next bar (or no longer has to). */
+  | { type: "stun"; on: boolean }
   | { type: "combo"; combo: number; fever: boolean; threshold: number }
   | { type: "fever"; on: boolean }
   | { type: "wait" }
@@ -127,6 +131,7 @@ export class Battle {
   private tellNextBar = false;
   readonly costs: CostAdjust;
   private pendingRound: RoundResult | null = null;
+  private stunned = false;
   private nullifyNext = false;
   private playerRelics: RelicRunner;
   private enemyRelics: RelicRunner;
@@ -155,6 +160,11 @@ export class Battle {
   /** Energy the player's action costs after relics (negative = gives energy). */
   costOf(action: ActionId): number {
     return costOf(action, this.costs);
+  }
+
+  /** After an enemy special with a stun relic lands, the next bar only accepts a guard. */
+  get guardOnly(): boolean {
+    return this.stunned;
   }
 
   /** The player's last `n` resolved actions, oldest first. */
@@ -202,7 +212,7 @@ export class Battle {
       const chance = always ? 1 : this.spec.tellChance * this.mods.tellChanceMult * this.enemyMods.tellChanceMult;
       const accuracy = Math.min(1, Math.max(0, this.spec.tellAccuracy + this.mods.tellAccuracyAdd + this.enemyMods.tellAccuracyAdd));
       const tell = rollTell(this.enemy, this.enemyChoice, chance, accuracy, always ? 0 : this.waitsInRow, this.rng);
-      if (tell) this.emit({ type: "tell", action: tell, forced: false });
+      if (tell) this.emit({ type: "tell", action: tell, forced: false, hidden: this.enemyMods.hideTellChance > 0 && this.rng.chance(this.enemyMods.hideTellChance) });
     }
   }
 
@@ -223,6 +233,7 @@ export class Battle {
     }
     const enemyAction = this.enemyChoice;
     const shielded = this.shieldNext;
+    this.setStunned(null);
     this.enemyChoice = null;
     this.waitsInRow++;
     this.perfectStreak = 0;
@@ -253,6 +264,7 @@ export class Battle {
     this.enemyLastHit = result.enemy.damageDealt > 0;
     this.enemyLastGuarded = false;
     this.emit({ type: "reveal", result });
+    this.setStunned(result);
     if (this.options.restBars) {
       this.restBars.add(bar + 1);
     } else {
@@ -267,6 +279,7 @@ export class Battle {
     const nearest = Math.round(beatPos);
     const bar = Math.floor(nearest / BEATS_PER_BAR);
     if (nearest % BEATS_PER_BAR !== ACTION_BEAT || this.isRestBar(bar) || this.actedBars.has(bar)) return null;
+    if (this.stunned && action !== "guard") return null;
     const enemyAction = this.enemyChoice ?? this.decideEnemy();
     const delta = (beatPos - nearest) * secondsPerBeat;
     const grade = judge(delta, this.perfectWindowMult);
@@ -298,11 +311,20 @@ export class Battle {
     this.enemyLastHit = result.enemy.damageDealt > 0;
     this.enemyLastGuarded = result.enemy.guarded;
     this.emit({ type: "reveal", result });
+    this.setStunned(result);
     // The combo (and so FEVER, and relics reacting to it) moves after the round resolves, so a
     // FEVER-start effect never changes the action that triggered it.
     this.setCombo(this.combo + 1);
     if (grade === "perfect") this.fire("player", "perfect", result);
     return grade;
+  }
+
+  /** A landed enemy special stuns (with the relic); any other round or a wait clears it. */
+  private setStunned(result: RoundResult | null): void {
+    const on = !!result && this.enemyMods.stunOnSpecial && result.enemy.action === "special" && result.player.damageTaken > 0;
+    if (on === this.stunned) return;
+    this.stunned = on;
+    this.emit({ type: "stun", on });
   }
 
   /** Items go on beats 1–3 of a call bar (never the action beat), at most one per beat. */
@@ -318,6 +340,10 @@ export class Battle {
     this.emit({ type: "judge", grade, delta, what: "item" });
     this.trackPerfect(grade);
     this.loadout.slots[slot] = null;
+    if (this.enemyMods.fumbleItems && grade !== "perfect") {
+      this.emit({ type: "item", slot, item, grade, reports: [], fumbled: true });
+      return grade;
+    }
 
     const ctx = this.context("player", null);
     const reports = useConsumable(item, grade === "perfect", ctx);

@@ -42,7 +42,7 @@ export function simulate(
   let tell: ActionId | null = null;
   let waitedForTell = false;
   const battle = new Battle(spec, { ...loadout, slots: [...loadout.slots] }, new Rng(seed + 1), (e) => {
-    if (e.type === "tell") tell = e.action;
+    if (e.type === "tell") tell = e.hidden ? null : e.action;
   }, options);
   const spb = 60 / battle.bpm;
   const catchTell = catchChance(2 * spb, player.reaction);
@@ -144,6 +144,7 @@ export function buildStyle(relics: readonly Relic[]): Style {
 
 function pick(strategy: Strategy, style: Style, battle: Battle, tell: ActionId | null, waited: boolean, rng: Rng): ActionId | null {
   const me = battle.player;
+  if (battle.guardOnly) return "guard";
   const can = (a: ActionId) => battle.costOf(a) <= me.energy;
   if (strategy === "tell_reader") {
     const waitOk = !style.noWait && !battle.enemyMods.actsOnWait;

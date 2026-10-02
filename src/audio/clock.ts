@@ -31,6 +31,7 @@ export class BeatClock {
   private lastBeat = -1;
   private lastOffbeat = -1;
   private timer: number | undefined;
+  private tempoChange: { beat: number; bpm: number } | null = null;
 
   constructor() {
     this.ctx = new AudioContext({ latencyHint: "interactive" });
@@ -61,6 +62,7 @@ export class BeatClock {
     this.bpm = bpm;
     this.t0 = this.ctx.currentTime + leadInSeconds;
     this.nextScheduled = 0;
+    this.tempoChange = null;
     this.lastBeat = -1;
     this.lastOffbeat = -1;
     this.running = true;
@@ -88,6 +90,15 @@ export class BeatClock {
     const age = event ? Math.max(0, (performance.now() - event.timeStamp) / 1000) : 0;
     const time = this.ctx.currentTime - age - this.latency() - this.inputOffset;
     return (time - this.t0) / this.secondsPerBeat;
+  }
+
+  /**
+   * Changes the tempo from `beat` on (it must not be scheduled yet). Beat 0 is moved so that
+   * `beat` keeps its time, so beat numbers stay continuous across the change.
+   */
+  setBpmAt(beat: number, bpm: number): void {
+    if (beat < this.nextScheduled) return;
+    this.tempoChange = { beat, bpm };
   }
 
   setInputOffset(seconds: number): void {
@@ -119,6 +130,12 @@ export class BeatClock {
     const horizon = this.ctx.currentTime + LOOKAHEAD_SECONDS;
     while (this.t0 + this.nextScheduled * this.secondsPerBeat < horizon) {
       const beat = this.nextScheduled;
+      if (this.tempoChange && this.tempoChange.beat === beat) {
+        const next = 60 / this.tempoChange.bpm;
+        this.t0 += beat * (this.secondsPerBeat - next);
+        this.bpm = this.tempoChange.bpm;
+        this.tempoChange = null;
+      }
       const at = this.t0 + beat * this.secondsPerBeat;
       if (at >= this.ctx.currentTime - 0.01) {
         this.synth.beat(at, beat % 4, this.barSound(Math.floor(beat / 4)), this.secondsPerBeat, this.groove, this.tickLevel);

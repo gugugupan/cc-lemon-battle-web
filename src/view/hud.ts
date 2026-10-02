@@ -161,7 +161,27 @@ export class Hud {
 
   setRound(label: string, bpm: number): void {
     this.round.textContent = label;
+    this.setBpm(bpm);
+  }
+
+  setBpm(bpm: number): void {
     this.bpm.textContent = `♩ ${bpm}`;
+    this.bpm.dataset.bpm = String(bpm);
+  }
+
+  get bpmShown(): string {
+    return this.bpm.dataset.bpm ?? "0";
+  }
+
+  /** Smoke relic: hides the beat frame and the pad's beat meter for a bar. */
+  setSmoke(on: boolean): void {
+    this.root.classList.toggle("smoky", on);
+  }
+
+  /** Stun relic: every pad button but guard is locked for a bar. */
+  setGuardOnly(on: boolean): void {
+    for (const [action, button] of this.pad) button.classList.toggle("stun-locked", on && action !== "guard");
+    this.pad.get("guard")!.classList.toggle("stun-only", on);
   }
 
   /** Marks the beat on the pad: pips fill on 1–3 and the pad lights up on the action beat. */

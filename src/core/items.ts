@@ -93,6 +93,16 @@ export interface Modifiers {
   specialCostAdd: number;
   /** Carried by an enemy: it still plays its move when the player waits. */
   actsOnWait: boolean;
+  /** Carried by an enemy: the tempo shifts every few bars (handled by the app's clock). */
+  tempoSway: boolean;
+  /** Carried by an enemy: some call bars hide the beat display (handled by the HUD). */
+  smoke: boolean;
+  /** Carried by an enemy: the player's consumables fail unless used on a Perfect. */
+  fumbleItems: boolean;
+  /** Carried by an enemy: after its special hits, the player can only guard next bar. */
+  stunOnSpecial: boolean;
+  /** Carried by an enemy: this share of its tells show only "???". */
+  hideTellChance: number;
 }
 
 export const NEUTRAL_MODS: Modifiers = {
@@ -114,6 +124,11 @@ export const NEUTRAL_MODS: Modifiers = {
   restBars: false,
   specialCostAdd: 0,
   actsOnWait: false,
+  tempoSway: false,
+  smoke: false,
+  fumbleItems: false,
+  stunOnSpecial: false,
+  hideTellChance: 0,
 };
 
 /** Build families for the player's items; shown in the shop and tooltips. */
@@ -229,6 +244,11 @@ export const ENEMY_RELICS: Relic[] = [
   { id: "yawn", kind: "relic", icon: "🥱", price: 0, tier: 3, mods: { feverThresholdAdd: 4 } },
   { id: "mark", kind: "relic", icon: "🎯", price: 0, tier: 3, mods: { damageVsFeverAdd: 1 } },
   { id: "impatient", kind: "relic", icon: "😤", price: 0, tier: 2, mods: { actsOnWait: true } },
+  { id: "smoke", kind: "relic", icon: "🌫️", price: 0, tier: 2, mods: { smoke: true } },
+  { id: "butterfingers", kind: "relic", icon: "🫨", price: 0, tier: 2, mods: { fumbleItems: true } },
+  { id: "blindfold", kind: "relic", icon: "🙈", price: 0, tier: 2, mods: { hideTellChance: 0.5 } },
+  { id: "sway", kind: "relic", icon: "⏱️", price: 0, tier: 3, mods: { tempoSway: true } },
+  { id: "stun", kind: "relic", icon: "🥶", price: 0, tier: 3, mods: { stunOnSpecial: true } },
   { id: "cold_shoulder", kind: "relic", icon: "🥶", price: 0, tier: 3, triggers: [{ on: "foe_fever_end", effects: [{ type: "damage", amount: 1 }, { type: "energy", amount: 1 }] }] },
 ];
 
@@ -262,6 +282,11 @@ export function combineMods(relics: readonly Relic[]): Modifiers {
     m.restBars ||= r.mods.restBars ?? false;
     m.specialCostAdd += r.mods.specialCostAdd ?? 0;
     m.actsOnWait ||= r.mods.actsOnWait ?? false;
+    m.tempoSway ||= r.mods.tempoSway ?? false;
+    m.smoke ||= r.mods.smoke ?? false;
+    m.fumbleItems ||= r.mods.fumbleItems ?? false;
+    m.stunOnSpecial ||= r.mods.stunOnSpecial ?? false;
+    m.hideTellChance = Math.max(m.hideTellChance, r.mods.hideTellChance ?? 0);
   }
   return m;
 }
