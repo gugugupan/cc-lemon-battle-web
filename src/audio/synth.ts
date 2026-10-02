@@ -141,6 +141,23 @@ export class Synth {
     [392, 330, 262, 196].forEach((f, i) => this.tone(t + i * 0.18, f, 0.4, 0.22, "triangle"));
   }
 
+  /** Treasure chest: a wooden rattle, then a sparkly pop as the lid flies open, then a chime on the pick. */
+  chest(phase: "shake" | "open" | "pick"): void {
+    const t = this.now();
+    if (phase === "shake") {
+      for (let i = 0; i < 4; i++) {
+        this.tone(t + i * 0.17, 180 + (i % 2) * 40, 0.07, 0.22, "square", 120);
+        this.burst(t + i * 0.17, 0.05, 0.12, "bandpass", 900);
+      }
+    } else if (phase === "open") {
+      this.burst(t, 0.35, 0.25, "highpass", 2500);
+      this.tone(t, 300, 0.25, 0.2, "triangle", 900);
+      [1047, 1319, 1568, 2093, 2637].forEach((f, i) => this.tone(t + 0.08 + i * 0.05, f, 0.3, 0.14, "sine"));
+    } else {
+      [784, 1175, 1568].forEach((f, i) => this.tone(t + i * 0.06, f, 0.25, 0.18, "triangle"));
+    }
+  }
+
   ui(): void {
     this.tone(this.now(), 1200, 0.05, 0.1, "sine");
   }

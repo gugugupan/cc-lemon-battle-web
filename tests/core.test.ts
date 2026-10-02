@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { decide, DEFAULT_AI, predict, rollTell } from "../src/core/ai";
 import { Battle, type BattleEvent } from "../src/core/battle";
-import { itemById, type Consumable, type Relic } from "../src/core/items";
+import { itemById, type Consumable, type Relic, RELICS } from "../src/core/items";
 import { Rng } from "../src/core/rng";
 import { type ActionId, affordable, type Fighter, judge, resolve } from "../src/core/rules";
 import { enemyFor, Run, tellVariety } from "../src/core/run";
@@ -225,6 +225,8 @@ describe("run", () => {
     const gold = run.finishBattle(true, 5);
     expect(gold).toBe(run.goldFor(5) * 2);
     expect(run.relicPick.length).toBe(3);
+    expect(run.takePick(-1)).toBeNull();
+    expect(run.relicPick.length).toBe(3);
     const taken = run.takePick(1);
     expect(run.relics).toContain(taken);
     expect(run.relicPick.length).toBe(0);
@@ -261,7 +263,39 @@ describe("run", () => {
     expect(run.round).toBe(2);
     expect(run.hp).toBe(4);
     expect(run.gold).toBeGreaterThan(20);
-    expect(run.stock.length).toBe(5);
+    expect(run.stock.length).toBe(3);
+    expect(run.stock.every((s) => s.item.kind === "consumable")).toBe(true);
+    expect(run.chestSold).toBe(false);
+  });
+
+  it("sells one chest per visit that opens to three unowned relics", () => {
+    const run = new Run(1);
+    const got: string[] = [];
+    run.onPurchase = (item) => got.push(item.id);
+    run.rollShop();
+    run.gold = 30;
+    expect(run.buyChest()).toBe("no_gold");
+    run.gold = 500;
+    expect(run.chestPrice()).toBe(45);
+    expect(run.buyChest()).toBe("ok");
+    expect(run.gold).toBe(455);
+    expect(run.relicPick.length).toBe(3);
+    expect(run.relicPick.every((r) => !run.hasRelic(r.id))).toBe(true);
+    expect(run.buyChest()).toBe("sold_out");
+    const taken = run.takePick(0)!;
+    expect(got).toEqual([taken.id]);
+    expect(run.buyChest()).toBe("sold_out");
+    run.rollShop();
+    expect(run.chestPrice()).toBe(50);
+  });
+
+  it("raises the chest price with every relic owned", () => {
+    const run = new Run(1);
+    const prices = [0, 2, 4, 8].map((n) => {
+      run.relics = RELICS.slice(0, n);
+      return run.chestPrice();
+    });
+    expect(prices).toEqual([45, 60, 70, 100]);
   });
 
   it("sells owned relics and consumables for half price", () => {
@@ -281,10 +315,9 @@ describe("run", () => {
     const run = new Run(1);
     run.rollShop();
     run.gold = 200;
-    const relicIndex = run.stock.findIndex((s) => s.item.kind === "relic");
-    expect(run.buy(relicIndex)).toBe("ok");
-    expect(run.buy(relicIndex)).toBe("sold_out");
-    expect(run.relics.length).toBe(1);
+    expect(run.buy(0)).toBe("ok");
+    expect(run.buy(0)).toBe("sold_out");
+    expect(run.slots.filter(Boolean).length).toBe(2);
     expect(run.slots.length).toBe(4);
     expect(run.rest()).toBe("maxed");
     run.hp = 3;

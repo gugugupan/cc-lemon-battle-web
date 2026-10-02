@@ -38,7 +38,7 @@ export function sellPrice(item: Item): number {
 }
 
 export interface StockEntry {
-  item: Item;
+  item: Consumable;
   sold: boolean;
 }
 
@@ -47,6 +47,9 @@ export const ELITE_EVERY = 5;
 /** From this fight on every enemy gets +1 energy per charge (chargers always do). */
 export const STRONG_CHARGE_FROM = 10;
 export const RELIC_PICK_SIZE = 3;
+/** The shop's treasure chest: one per visit, opens to a relic pick; dearer for every relic owned. */
+export const CHEST_PRICE = 45;
+export const CHEST_PRICE_STEP = 0.15;
 
 /** Personality odds by stage: easy-to-read styles early, the reader later. */
 function personalityFor(n: number, rng: Rng): Personality {
@@ -115,9 +118,11 @@ export class Run {
   enemy: EnemySpec;
   /** Set once the player chooses to keep going after the goal. */
   endless = false;
-  /** Relics offered for free after beating an elite; empty otherwise. */
+  /** Relics on offer from an open chest (an elite's free one or a bought one); empty otherwise. */
   relicPick: Relic[] = [];
-  /** Called after every successful purchase (the app uses it for purchase-based unlocks). */
+  /** Whether this shop visit's chest has been bought. */
+  chestSold = false;
+  /** Called after every purchase and every relic taken from a chest (for item-based unlocks). */
   onPurchase: (item: Item) => void = () => {};
 
   constructor(seed?: number, character: Character = CHARACTERS[0]) {
@@ -149,13 +154,13 @@ export class Run {
 
   /**
    * Returns the gold won; after a win the next enemy is rolled and the shop restocked. Beating an
-   * elite doubles the gold and offers a free relic pick (`relicPick`).
+   * elite doubles the gold and opens a free chest (`relicPick`).
    */
   finishBattle(won: boolean, hpLeft: number): number {
     this.hp = Math.max(0, Math.min(this.maxHp, hpLeft));
     if (!won) return 0;
     const gold = this.goldFor(this.round) * (this.enemy.elite ? 2 : 1);
-    this.relicPick = this.enemy.elite ? this.rng.shuffle(RELICS.filter((r) => !this.hasRelic(r.id))).slice(0, RELIC_PICK_SIZE) : [];
+    this.relicPick = this.enemy.elite ? this.rollChest() : [];
     this.gold += gold;
     this.hp = Math.min(this.maxHp, this.hp + VICTORY_HEAL);
     this.round++;
@@ -165,9 +170,29 @@ export class Run {
   }
 
   rollShop(): void {
-    const consumables = this.rng.shuffle(CONSUMABLES).slice(0, 3);
-    const relics = this.rng.shuffle(RELICS.filter((r) => !this.hasRelic(r.id))).slice(0, 2);
-    this.stock = [...consumables, ...relics].map((item) => ({ item, sold: false }));
+    this.stock = this.rng.shuffle(CONSUMABLES).slice(0, 3).map((item) => ({ item, sold: false }));
+    this.chestSold = false;
+  }
+
+  private rollChest(): Relic[] {
+    return this.rng.shuffle(RELICS.filter((r) => !this.hasRelic(r.id))).slice(0, RELIC_PICK_SIZE);
+  }
+
+  chestPrice(): number {
+    return Math.round((CHEST_PRICE * (1 + CHEST_PRICE_STEP * this.relics.length)) / 5) * 5;
+  }
+
+  /** Pays for this visit's chest and fills `relicPick`; the player must then `takePick` one. */
+  buyChest(): Purchase {
+    if (this.chestSold || this.relicPick.length > 0) return "sold_out";
+    const offer = this.rollChest();
+    if (offer.length === 0) return "sold_out";
+    const price = this.chestPrice();
+    if (this.gold < price) return "no_gold";
+    this.gold -= price;
+    this.chestSold = true;
+    this.relicPick = offer;
+    return "ok";
   }
 
   hasRelic(id: string): boolean {
@@ -178,28 +203,26 @@ export class Run {
     const entry = this.stock[index];
     if (!entry || entry.sold) return "sold_out";
     if (this.gold < entry.item.price) return "no_gold";
-    if (entry.item.kind === "consumable") {
-      const free = this.slots.indexOf(null);
-      if (free < 0) return "bag_full";
-      this.slots[free] = entry.item;
-    } else {
-      this.relics.push(entry.item);
-    }
+    const free = this.slots.indexOf(null);
+    if (free < 0) return "bag_full";
+    this.slots[free] = entry.item;
     this.gold -= entry.item.price;
     entry.sold = true;
     this.onPurchase(entry.item);
     return "ok";
   }
 
-  /** Takes one relic from the elite reward (or none, with -1). */
+  /** Takes one relic from the open chest; an out-of-range index takes nothing and keeps it open. */
   takePick(index: number): Relic | null {
     const relic = this.relicPick[index] ?? null;
-    if (relic) this.relics.push(relic);
+    if (!relic) return null;
+    this.relics.push(relic);
     this.relicPick = [];
+    this.onPurchase(relic);
     return relic;
   }
 
-    canRest(): boolean {
+  canRest(): boolean {
     return this.hp < this.maxHp;
   }
 

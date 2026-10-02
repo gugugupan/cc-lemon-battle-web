@@ -61,6 +61,7 @@ export class App {
     this.hud = new Hud(root);
     this.screens = new Screens(root);
     this.screens.sfx = () => this.clock.synth.ui();
+    this.screens.chestSfx = (phase) => this.clock.synth.chest(phase);
     this.hud.onAction = (a, e) => this.act(a, e);
     this.hud.onItem = (slot, e) => this.useItem(slot, e);
     this.stage.onFrame = (dt) => this.frame(dt);
@@ -613,7 +614,7 @@ export class App {
       const elite = run.relicPick.length > 0;
       this.screens.victory(gold, elite, () => {
         if (!elite) return this.openShop(run);
-        this.screens.relicPick(run.relicPick, (i) => {
+        this.screens.chest(run.relicPick, t("pickTitle"), (i) => {
           run.takePick(i);
           this.openShop(run);
         });

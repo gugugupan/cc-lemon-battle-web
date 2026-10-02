@@ -70,7 +70,7 @@ function pick(strategy: Strategy, battle: Battle, tell: ActionId | null, waited:
 
 /**
  * Plays a whole run with one character: fights in a row with HP and gold carried over, and a
- * simple shopper in between (rest when hurt, then random affordable relics, then consumables).
+ * simple shopper in between (rest when hurt, then the chest with a random pick, then consumables).
  * Returns how many fights were won before losing, capped at the goal.
  */
 export function simulateRun(character: Character, strategy: Strategy, perfectRate: number, seed: number): number {
@@ -83,10 +83,7 @@ export function simulateRun(character: Character, strategy: Strategy, perfectRat
     if (!result.won) break;
     if (run.relicPick.length) run.takePick(shopper.int(0, run.relicPick.length - 1));
     while (run.hp < run.maxHp - 1 && run.rest() === "ok");
-    for (const i of shopper.shuffle(run.stock.map((_, i) => i))) {
-      const entry = run.stock[i];
-      if (entry.item.kind === "relic") run.buy(i);
-    }
+    if (run.buyChest() === "ok") run.takePick(shopper.int(0, run.relicPick.length - 1));
     for (let i = 0; i < run.stock.length; i++) run.buy(i);
   }
   return run.wins;

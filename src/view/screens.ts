@@ -50,6 +50,7 @@ export class Screens {
   private primary: (() => void) | null = null;
   private keyHandler: ((e: KeyboardEvent) => boolean) | null = null;
   sfx: () => void = () => {};
+  chestSfx: (phase: "shake" | "open" | "pick") => void = () => {};
 
   constructor(parent: HTMLElement) {
     parent.append(this.root);
@@ -306,27 +307,68 @@ export class Screens {
     ], "dim clear");
   }
 
-  /** Free relic after an elite: pick one of the offered relics, or none. */
-  relicPick(relics: Relic[], onPick: (index: number) => void): void {
+  /**
+   * Treasure chest: it shakes, pops open and deals out the relics on offer; one must be taken.
+   * Used for the shop's chest and an elite's free reward alike.
+   */
+  chest(relics: Relic[], title: string, onPick: (index: number) => void): void {
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
     const cards = relics
-      .map((r, i) => `<button class="shop-card relic" data-pick="${i}"><span class="item-icon big">${r.icon}</span><span class="item-name">${escape(itemName(r.id))}</span>${r.series ? `<span class="series-chip series-${r.series}">${escape(seriesLabel(r))}</span>` : ""}<span class="item-desc">${escape(itemDesc(r.id))}</span></button>`)
+      .map(
+        (r, i) => `<button class="shop-card relic chest-card" data-pick="${i}" style="--i:${i};--n:${relics.length}" disabled>
+          <span class="item-icon big">${r.icon}</span><span class="item-name">${escape(itemName(r.id))}</span>${r.series ? `<span class="series-chip series-${r.series}">${escape(seriesLabel(r))}</span>` : ""}<span class="item-desc">${escape(itemDesc(r.id))}</span>
+          <span class="card-key">${i + 1}</span></button>`,
+      )
       .join("");
-    const panel = h(`<div class="panel pick-panel"><h2>🎁 ${t("pickTitle")}</h2><div class="stock pick">${cards}</div></div>`);
-    panel.querySelectorAll<HTMLElement>("[data-pick]").forEach((b) =>
-      b.addEventListener("click", () => {
-        this.sfx();
-        onPick(Number(b.dataset.pick));
-      }),
-    );
-    this.show(panel, [{ label: t("pickSkip"), onClick: () => onPick(-1), ghost: true }], "dim");
+    const bubbles = Array.from({ length: 14 }, (_, i) => `<i style="--a:${(i * 360) / 14}deg;--d:${0.6 + (i % 4) * 0.25}"></i>`).join("");
+    const panel = h(`<div class="panel pick-panel chest-panel">
+      <h2>🎁 ${escape(title)}</h2>
+      <div class="chest-stage">
+        <div class="chest-glow"></div>
+        <div class="chest-bubbles">${bubbles}</div>
+        <div class="chest"><div class="chest-lid"><span class="chest-band"></span></div><div class="chest-body"><span class="chest-band"></span><span class="chest-lock"></span></div></div>
+      </div>
+      <div class="stock pick chest-cards">${cards}</div>
+    </div>`);
+    let picked = false;
+    let ready = false;
+    const timers: number[] = [];
+    const later = (ms: number, fn: () => void) => timers.push(window.setTimeout(fn, reduced ? Math.min(ms, 60) : ms));
+    const reveal = () => {
+      if (ready) return;
+      ready = true;
+      timers.forEach((id) => window.clearTimeout(id));
+      panel.classList.add("shaking", "open", "dealt");
+      panel.querySelectorAll<HTMLButtonElement>("[data-pick]").forEach((b) => (b.disabled = false));
+    };
+    const pick = (i: number) => {
+      if (picked || !ready || i < 0 || i >= relics.length) return;
+      picked = true;
+      this.chestSfx("pick");
+      panel.classList.add("picked");
+      panel.querySelector(`[data-pick="${i}"]`)?.classList.add("chosen");
+      window.setTimeout(() => onPick(i), reduced ? 0 : 650);
+    };
+    panel.querySelectorAll<HTMLElement>("[data-pick]").forEach((b) => b.addEventListener("click", () => pick(Number(b.dataset.pick))));
+    panel.querySelector(".chest-stage")!.addEventListener("click", reveal);
+    this.show(panel, [], "dim");
+    panel.querySelectorAll<HTMLElement>("[data-pick]").forEach((b, i) => attachTooltip(b, relics[i]));
     this.keyHandler = (e) => {
       const n = Number(e.key);
-      if (n >= 1 && n <= relics.length) {
-        onPick(n - 1);
-        return true;
-      }
-      return false;
+      if (n >= 1 && n <= relics.length) pick(n - 1);
+      else if (e.key === "Enter" || e.key === " ") reveal();
+      return true;
     };
+    later(80, () => {
+      panel.classList.add("shaking");
+      this.chestSfx("shake");
+    });
+    later(950, () => {
+      panel.classList.add("open");
+      this.chestSfx("open");
+    });
+    later(1250, () => panel.classList.add("dealt"));
+    later(1250 + 160 * relics.length + 450, reveal);
   }
 
   victory(gold: number, elite: boolean, onNext: () => void): void {
@@ -341,10 +383,9 @@ export class Screens {
     const render = () => {
       const stock = run.stock
         .map((s, i) => {
-          const tag = s.item.kind === "relic" ? `<span class="tag">${t("relicTag")}</span>` : "";
           return `<button class="shop-card ${s.item.kind} ${s.sold ? "sold" : ""}" data-buy="${i}" ${s.sold ? "disabled" : ""}>
             <span class="item-icon big">${s.item.icon}</span>
-            <span class="item-name">${escape(itemName(s.item.id))} ${tag}</span>
+            <span class="item-name">${escape(itemName(s.item.id))}</span>
             ${s.item.series ? `<span class="series-chip series-${s.item.series}">${escape(seriesLabel(s.item))}</span>` : ""}
             <span class="item-desc">${escape(itemDesc(s.item.id))}</span>
             <span class="price">${s.sold ? t("sold") : t("buy", s.item.price)}</span></button>`;
@@ -355,6 +396,12 @@ export class Screens {
             <span class="item-name">${t("restName")}</span>
             <span class="item-desc">${t("restDesc", REST_HEAL)}</span>
             <span class="price">${run.canRest() ? t("buy", REST_PRICE) : t("hpFull")}</span></button>`;
+      const chestOpen = !run.chestSold;
+      const chest = `<button class="shop-card chest-offer ${chestOpen ? "" : "sold"}" data-chest ${chestOpen ? "" : "disabled"}>
+            <span class="item-icon big"><span class="mini-chest"></span></span>
+            <span class="item-name">${t("chestName")} <span class="tag">${t("relicTag")}</span></span>
+            <span class="item-desc">${t("chestDesc")}</span>
+            <span class="price">${chestOpen ? t("buy", run.chestPrice()) : t("sold")}</span></button>`;
       const slots = run.slots
         .map((s, i) => `<button class="slot ${s ? "" : "empty"} ${selected === i ? "selected" : ""}" data-slot="${i}"><span class="slot-key">${i + 1}</span><span class="slot-icon">${s?.icon ?? ""}</span></button>`)
         .join("");
@@ -367,7 +414,7 @@ export class Screens {
       const panel = h(`<div class="panel shop-panel">
         <div class="shop-head"><h2>🏪 ${t("shop")}</h2><div class="gold">🪙 ${t("gold", run.gold)}</div></div>
         <p class="muted">${t("shopHint")}</p>
-        <div class="stock">${rest}${stock}</div>
+        <div class="stock">${chest}${rest}${stock}</div>
         <h3>${t("owned")}</h3>
         <div class="owned"><div class="hearts">${pips(run.hp, run.maxHp, "heart", "heart empty")}</div><div class="slots">${slots}</div></div>
         <div class="sell-list">${owned}</div>
@@ -384,6 +431,24 @@ export class Screens {
           }
           feedback(result === "ok");
           render();
+        }),
+      );
+      panel.querySelectorAll<HTMLElement>("[data-chest]").forEach((b) =>
+        b.addEventListener("click", () => {
+          const result = run.buyChest();
+          feedback(result === "ok");
+          if (result !== "ok") {
+            message = t(result === "sold_out" && !run.chestSold && run.relicPick.length === 0 ? "chestEmpty" : result);
+            render();
+            return;
+          }
+          this.chest(run.relicPick, t("chestTitle"), (i) => {
+            const relic = run.takePick(i);
+            message = relic ? t("chestGot", escape(itemName(relic.id))) : "";
+            const extra = onBought();
+            if (extra) message = `${message}　${extra}`;
+            render();
+          });
         }),
       );
       panel.querySelectorAll<HTMLElement>("[data-rest]").forEach((b) =>
