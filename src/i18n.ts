@@ -54,6 +54,7 @@ const STRINGS = {
   ev_shrine_pray: { ja: "体力を捧げて祈る（最大 HP -1、宝箱）", zh: "献上体力祈祷（最大 HP -1，开宝箱）" },
   ev_shrine_pray_r: { ja: "鈴の音とともに、宝箱が現れた。", zh: "铃声响起，出现了一个宝箱。" },
   ev_shrine_too_weak: { ja: "体力が足りない", zh: "体力不够" },
+  specialCutIn: { ja: "必殺！", zh: "必杀！" },
   paused: { ja: "一時停止", zh: "暂停" },
   resume: { ja: "つづける", zh: "继续" },
   quitRun: { ja: "あきらめてタイトルへ", zh: "放弃，回标题" },

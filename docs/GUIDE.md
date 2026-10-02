@@ -327,6 +327,8 @@ npm run build      # 静态网站输出到 dist/
 - 模型：Kenney 的 Mini Characters / Mini Forest / Mini Arcade / Cube Pets（CC0，`public/models/`，许可文件在各文件夹）。
 - 声音：全部由 Web Audio 合成。`src/audio/synth.ts` 是音效和每拍提示音；`src/audio/music.ts` 是 BGM：普通关卡按顺序轮流播放 3 首 Lo-fi（放学后 → 黄昏教室 → 汽水 Chill-hop），强敌关卡播放电子 Funk，都和判定时钟从同一拍开始、跟着对手 BPM 走，FEVER 时加一层。标题画面的「🔊 音量」可以分别调音乐和效果音（0–100%，默认 50%；效果音包含节拍提示音）；音乐调到 0 就是关掉，改用内建的节拍鼓组。所有候选风格可以在 `/bgm.html` 试听。
 
+- 必杀技动画：放招方镜头推近（`Stage.focus`），HUD 弹出「必殺！」集中线插画（敌人是覆盆子红色调），0.12 秒后从放招者飞出一颗旋转的 3D 大柠檬（`Stage.lemonShot`），约 0.3 秒落地：命中时果汁爆开、闪白、强震屏（破防时对手的护盾先碎裂）；被挡下时柠檬弹开；双方相杀时两颗柠檬在中间对撞。被打的一方的伤害数字、血量更新等落地再出现。专属落地音效 `Synth.specialImpact`。
+
 ## 11. 浏览器存档（localStorage）
 
 | key | 内容 |

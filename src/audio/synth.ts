@@ -112,6 +112,14 @@ export class Synth {
     this.burst(t + 0.05, 0.4, 0.3, "highpass", 1500);
   }
 
+  /** The special's lemon landing: a deep boom with a splash on top. */
+  specialImpact(): void {
+    const t = this.now();
+    this.tone(t, 110, 0.5, 0.5, "sine", 40);
+    this.burst(t, 0.35, 0.35, "lowpass", 900);
+    this.burst(t + 0.02, 0.25, 0.2, "highpass", 3000);
+  }
+
   item(): void {
     const t = this.now();
     [988, 1319, 1760].forEach((f, i) => this.tone(t + i * 0.05, f, 0.15, 0.18, "triangle"));

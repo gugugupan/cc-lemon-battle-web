@@ -1982,6 +1982,87 @@ i.lemon.empty {
   }
 }
 
+/* ---------- special move ---------- */
+
+.cut-in {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  --tint: 255, 212, 59;
+  background: radial-gradient(circle, transparent 35%, rgba(31, 42, 68, 0.45) 100%),
+    repeating-conic-gradient(from 0deg at 50% 50%, rgba(var(--tint), 0.28) 0deg 2deg, transparent 2deg 9deg);
+  animation: cut-in-bg 0.7s ease-out forwards;
+}
+
+.cut-in.enemy {
+  --tint: 230, 73, 128;
+}
+
+.cut-in-band {
+  width: 140%;
+  transform: rotate(-8deg);
+  background: linear-gradient(90deg, transparent, rgba(var(--tint), 0.95) 20%, rgba(var(--tint), 0.95) 80%, transparent);
+  text-align: center;
+  padding: 10px 0;
+  animation: cut-in-band 0.7s cubic-bezier(0.2, 1.2, 0.4, 1) forwards;
+}
+
+.cut-in-band span {
+  display: inline-block;
+  font-size: clamp(44px, 10vw, 96px);
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 0.08em;
+  text-shadow: 0 4px 0 rgba(31, 42, 68, 0.6), 0 0 24px rgba(255, 255, 255, 0.8);
+}
+
+@keyframes cut-in-bg {
+  0% {
+    opacity: 0;
+  }
+  15%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes cut-in-band {
+  0% {
+    transform: rotate(-8deg) translateX(-60%) scaleY(0.2);
+  }
+  25%,
+  70% {
+    transform: rotate(-8deg) translateX(0) scaleY(1);
+  }
+  100% {
+    transform: rotate(-8deg) translateX(60%) scaleY(0.2);
+    opacity: 0;
+  }
+}
+
+.screen-flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+  animation: screen-flash 0.3s ease-out forwards;
+}
+
+@keyframes screen-flash {
+  from {
+    opacity: 0.7;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 /* ---------- disturbing enemy relics ---------- */
 
 .beat-frame {

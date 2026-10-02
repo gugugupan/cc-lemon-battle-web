@@ -31,6 +31,8 @@ const KEY_ACTIONS: Record<string, ActionId> = { ArrowRight: "attack", ArrowLeft:
 const END_DELAY_MS = 1300;
 const NORMAL_PLAYLIST: StyleId[] = ["lofi", "lofi2", "lofi3"];
 const MUSIC_VOLUME = 0.5;
+/** Glow of the special's lemon and juice: lemon for the player, raspberry for the enemy. */
+const SPECIAL_TINT = { player: "#ffd43b", enemy: "#e64980" } as const;
 /** Sway relic: every this many bars the tempo moves by the step, never further than the max from the fight's own tempo. */
 const TEMPO_SWAY_BARS = 4;
 const TEMPO_SWAY_STEP = 8;
@@ -695,40 +697,91 @@ export class App {
         synth.special();
       }
     }
+    const sides = ["player", "enemy"] as const;
+    const specials = sides.filter((side) => r[side].action === "special" && !r[side].whiffed);
+    const other = (side: "player" | "enemy") => (side === "player" ? "enemy" : "player");
+    /** Sides whose outcome waits for a special's lemon to land (everything, when it's a clash). */
+    const waiting = new Set<"player" | "enemy">(r.clash && specials.length ? sides : specials.map(other));
+    if (specials.length) this.specialWindUp(specials);
     this.stage.reveal(r.playerIdle ? null : r.player.action, r.enemy.action, labels, { player: mark(r.player), enemy: mark(r.enemy) }, () => {
-      const battle = this.battle;
-      if (!battle) return;
       this.stage.scenery.jumpAll();
-      const meet = this.stage.project(this.stage.cardMeet());
-      if (r.clash) {
-        this.stage.knockCards();
-        this.stage.sparks(this.stage.cardMeet(), "#ffe066", 40, 5);
-        this.stage.shake(5);
-        synth.clash();
-        if (r.player.damageTaken === 0 && r.enemy.damageTaken === 0) this.hud.popup(t("clash"), meet.x, meet.y - 70, "outcome");
-      }
-      for (const side of ["player", "enemy"] as const) {
-        const s = r[side];
-        if (s.guarded) {
-          this.stage.fighter(side).guard(this.stage.tweens);
-          this.stage.sparks(this.stage.chest(side), "#74c0fc", 20, 3);
-          synth.guard();
-          this.hud.popup(t("blocked"), meet.x, meet.y - 70, "outcome");
-        }
-        if (s.damageTaken > 0) {
-          this.stage.fighter(side).hurt();
-          this.stage.sparks(this.stage.chest(side), side === "player" ? "#ff8787" : "#ffe066", 30, 4.5, 6);
-          this.stage.shake(side === "player" ? 14 : 8);
-          synth.hit();
-          const at = this.stage.screenOf(side, 2.6);
-          this.hud.popup(t("fx_damage", s.damageTaken), at.x, at.y, "damage big");
-          this.stage.tweens.delay(0.4, () => this.stage.scenery.react(side === "enemy" ? "yay" : "aww"));
-          const other = side === "player" ? r.enemy : r.player;
-          if (!r.clash && other.action === "special" && s.action === "guard") this.hud.popup(t("guardBreak"), meet.x, meet.y - 70, "outcome");
-        }
-      }
-      this.hud.setStats(battle.player, battle.enemy);
+      this.impact(r, sides.filter((side) => !waiting.has(side)), waiting.size === 0);
     });
+    if (!specials.length) return;
+    let landed = 0;
+    this.stage.tweens.delay(0.12, () => {
+      for (const side of specials) {
+        const target = r[other(side)];
+        const end = r.clash ? "clash" : target.damageTaken > 0 ? "hit" : "blocked";
+        this.stage.lemonShot(side, end, SPECIAL_TINT[side], () => {
+          if (++landed < specials.length) return;
+          this.specialLanded(r, side, end);
+          this.impact(r, [...waiting]);
+        });
+      }
+    });
+  }
+
+  /** The special's wind-up: camera push, cut-in and charge-up, tinted by who throws it. */
+  private specialWindUp(specials: readonly ("player" | "enemy")[]): void {
+    const side = specials.length === 2 ? "both" : specials[0];
+    this.stage.focus(side);
+    this.hud.cutIn(t("specialCutIn"), specials.includes("player") ? "player" : "enemy");
+  }
+
+  private specialLanded(r: RoundResult, side: "player" | "enemy", end: "hit" | "blocked" | "clash"): void {
+    const target = side === "player" ? "enemy" : "player";
+    const tint = SPECIAL_TINT[side];
+    this.clock.synth.specialImpact();
+    if (end === "clash") {
+      this.stage.juice(this.stage.cardMeet(), "#ffffff");
+      this.hud.flash("#fff");
+      return;
+    }
+    if (end === "blocked") {
+      this.stage.sparks(this.stage.chest(target), "#a5d8ff", 30, 4);
+      this.stage.shake(8);
+      return;
+    }
+    if (r[target].action === "guard" && !r[target].whiffed) this.stage.shatter(target);
+    this.stage.juice(this.stage.chest(target), tint);
+    this.hud.flash(side === "player" ? "rgba(255, 236, 153, 0.9)" : "rgba(247, 131, 172, 0.8)");
+  }
+
+  /** Clash, guard and damage effects for the given sides of a round; stats refresh once nothing waits. */
+  private impact(r: RoundResult, sides: readonly ("player" | "enemy")[], refresh = true): void {
+    const battle = this.battle;
+    if (!battle) return;
+    const synth = this.clock.synth;
+    const meet = this.stage.project(this.stage.cardMeet());
+    if (r.clash && sides.length === 2) {
+      this.stage.knockCards();
+      this.stage.sparks(this.stage.cardMeet(), "#ffe066", 40, 5);
+      this.stage.shake(5);
+      synth.clash();
+      if (r.player.damageTaken === 0 && r.enemy.damageTaken === 0) this.hud.popup(t("clash"), meet.x, meet.y - 70, "outcome");
+    }
+    for (const side of sides) {
+      const s = r[side];
+      if (s.guarded) {
+        this.stage.fighter(side).guard(this.stage.tweens);
+        this.stage.sparks(this.stage.chest(side), "#74c0fc", 20, 3);
+        synth.guard();
+        this.hud.popup(t("blocked"), meet.x, meet.y - 70, "outcome");
+      }
+      if (s.damageTaken > 0) {
+        this.stage.fighter(side).hurt();
+        this.stage.sparks(this.stage.chest(side), side === "player" ? "#ff8787" : "#ffe066", 30, 4.5, 6);
+        this.stage.shake(side === "player" ? 14 : 8);
+        synth.hit();
+        const at = this.stage.screenOf(side, 2.6);
+        this.hud.popup(t("fx_damage", s.damageTaken), at.x, at.y, "damage big");
+        this.stage.tweens.delay(0.4, () => this.stage.scenery.react(side === "enemy" ? "yay" : "aww"));
+        const other = side === "player" ? r.enemy : r.player;
+        if (!r.clash && other.action === "special" && s.action === "guard") this.hud.popup(t("guardBreak"), meet.x, meet.y - 70, "outcome");
+      }
+    }
+    if (refresh) this.hud.setStats(battle.player, battle.enemy);
   }
 
   private endBattle(winner: "player" | "enemy" | "draw"): void {

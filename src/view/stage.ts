@@ -362,6 +362,9 @@ export class Stage {
   private feverK = 0;
   private feverOn = false;
   private punch = 0;
+  /** Special wind-up: how far the camera has pushed toward `focusX` (0–1). */
+  private focusK = 0;
+  private focusX = 0;
   private shakeT = 0;
   private shakeStrength = 0;
   private cameraBase = new THREE.Vector3(0, 2.9, 10);
@@ -653,6 +656,80 @@ export class Stage {
     return this.fighter(side).root.position.clone().add(new THREE.Vector3(0, 1.3, 0.3));
   }
 
+  /** Pushes the camera toward a fighter for a moment (the special's wind-up). */
+  focus(side: Side | "both", seconds = 0.75): void {
+    this.focusX = side === "both" ? 0 : this.fighter(side).root.position.x * 0.45;
+    this.tweens.add(seconds, (k) => {
+      this.focusK = k < 0.2 ? ease.outCubic(k / 0.2) : k > 0.6 ? 1 - ease.outCubic((k - 0.6) / 0.4) : 1;
+    });
+  }
+
+  /**
+   * Throws a spinning lemon from one fighter: at the other one, or to the middle for a clash.
+   * A blocked lemon bounces off upward. `onLand` fires when it arrives.
+   */
+  lemonShot(from: Side, end: "hit" | "blocked" | "clash", tint: string, onLand: () => void, seconds = 0.3): void {
+    const lemon = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ color: "#ffe066", emissive: new THREE.Color(tint), emissiveIntensity: 0.55, roughness: 0.35 });
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.36, 20, 14), mat);
+    body.scale.set(1.3, 1, 1);
+    lemon.add(body);
+    for (const dx of [-0.48, 0.48]) {
+      const nub = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), mat);
+      nub.position.x = dx;
+      lemon.add(nub);
+    }
+    const to: Side = from === "player" ? "enemy" : "player";
+    const start = this.chest(from).add(new THREE.Vector3(0, 0.4, 0.3));
+    const target = end === "clash" ? new THREE.Vector3(0, 2.1, 1) : this.chest(to).add(new THREE.Vector3(0, 0.2, 0.3));
+    lemon.position.copy(start);
+    this.scene.add(lemon);
+    const dispose = () => {
+      this.scene.remove(lemon);
+      lemon.traverse((o) => (o as THREE.Mesh).geometry?.dispose());
+      mat.dispose();
+    };
+    this.tweens.add(
+      seconds,
+      (k) => {
+        lemon.position.lerpVectors(start, target, k);
+        lemon.position.y += Math.sin(Math.PI * k) * 0.9;
+        lemon.rotation.z = k * 9 * (from === "player" ? -1 : 1);
+        lemon.scale.setScalar(0.5 + 0.7 * k);
+        if (Math.random() < 0.6) this.sparks(lemon.position.clone(), tint, 3, 0.8);
+      },
+      () => {
+        onLand();
+        if (end !== "blocked") return dispose();
+        const bounceFrom = lemon.position.clone();
+        const back = to === "enemy" ? -1 : 1;
+        this.tweens.add(
+          0.35,
+          (b) => {
+            lemon.position.set(bounceFrom.x + back * 1.2 * b, bounceFrom.y + Math.sin(Math.PI * b) * 1.2, bounceFrom.z);
+            lemon.scale.setScalar(1.2 * (1 - b));
+          },
+          dispose,
+        );
+      },
+    );
+  }
+
+  /** Lemon juice bursting out where a special lands. */
+  juice(at: THREE.Vector3, tint: string): void {
+    this.sparks(at, "#ffe066", 70, 6, 8);
+    this.sparks(at, tint, 30, 4.5, 5);
+    this.sparks(at, "#ffffff", 16, 3);
+    this.shake(18);
+    this.punch = 1;
+  }
+
+  /** A guard shattering under a special: the shield flashes and breaks into shards. */
+  shatter(side: Side): void {
+    this.fighter(side).guard(this.tweens);
+    this.sparks(this.chest(side), "#a5d8ff", 40, 5.5, 7);
+  }
+
   shake(strength: number): void {
     this.shakeT = 1;
     this.shakeStrength = strength;
@@ -740,11 +817,12 @@ export class Stage {
     this.punch = Math.max(0, this.punch - dt * 5);
     this.shakeT = Math.max(0, this.shakeT - dt * 3);
     const s = this.shakeT * this.shakeStrength * 0.03;
-    const zoom = 1 - 0.04 * this.punch;
-    this.camera.position.copy(this.cameraBase).sub(this.lookAt).multiplyScalar(zoom).add(this.lookAt);
+    const zoom = (1 - 0.04 * this.punch) * (1 - 0.2 * this.focusK);
+    const look = this.lookAt.clone().add(new THREE.Vector3(this.focusX * this.focusK, 0.25 * this.focusK, 0));
+    this.camera.position.copy(this.cameraBase).sub(this.lookAt).multiplyScalar(zoom).add(look);
     this.camera.position.x += (Math.random() - 0.5) * s;
     this.camera.position.y += (Math.random() - 0.5) * s;
-    this.camera.lookAt(this.lookAt);
+    this.camera.lookAt(look);
     this.renderer.render(this.scene, this.camera);
   }
 }

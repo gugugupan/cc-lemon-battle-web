@@ -182,6 +182,22 @@ export class Hud {
     return this.bpm.dataset.bpm ?? "0";
   }
 
+  /** The special's cut-in: speed lines and a big 「必殺！」 sweeping across, tinted by who threw it. */
+  cutIn(text: string, side: "player" | "enemy"): void {
+    const node = el("div", `cut-in ${side}`);
+    node.innerHTML = `<div class="cut-in-band"><span>${text}</span></div>`;
+    this.root.append(node);
+    node.addEventListener("animationend", (e) => e.target === node && node.remove());
+  }
+
+  /** A full-screen flash, for impacts. */
+  flash(color: string): void {
+    const node = el("div", "screen-flash");
+    node.style.background = color;
+    this.root.append(node);
+    node.addEventListener("animationend", () => node.remove());
+  }
+
   /** Smoke relic: hides the beat frame and the pad's beat meter for a bar. */
   setSmoke(on: boolean): void {
     this.root.classList.toggle("smoky", on);
