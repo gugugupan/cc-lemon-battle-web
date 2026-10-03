@@ -107,6 +107,10 @@ export class Screens {
     this.keyHandler = null;
   }
 
+  get onTitle(): boolean {
+    return this.root.classList.contains("title");
+  }
+
   private show(panel: HTMLElement, buttons: Button[], cls = ""): void {
     this.root.innerHTML = "";
     this.root.className = `overlay ${cls}`;

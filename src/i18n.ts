@@ -440,16 +440,29 @@ const STRINGS = {
 
 export type StringKey = keyof typeof STRINGS;
 
+/** Shared by every site on gugugupan.github.io so a choice made on one applies to all. */
+const SHARED_KEY = "gratin:lang";
+const LEGACY_KEY = "cc-lemon:lang";
+
+const isLang = (v: unknown): v is Lang => v === "ja" || v === "zh";
+
 let lang: Lang = detect();
 
-function detect(): Lang {
+function chosen(): string | null {
   try {
-    const saved = localStorage.getItem("cc-lemon:lang");
-    if (saved === "ja" || saved === "zh") return saved;
+    return localStorage.getItem(SHARED_KEY) ?? localStorage.getItem(LEGACY_KEY);
   } catch {
-    // storage can be blocked; fall through to the browser language
+    return null;
   }
-  return navigator.language.toLowerCase().startsWith("zh") ? "zh" : "ja";
+}
+
+/** A saved choice wins (falling back to Japanese if this game lacks it); otherwise Japanese whenever the browser accepts it. */
+function detect(): Lang {
+  const saved = chosen();
+  if (saved) return isLang(saved) ? saved : "ja";
+  const bases = (navigator.languages?.length ? navigator.languages : [navigator.language]).map((tag) => tag.toLowerCase().split("-")[0]);
+  if (bases.includes("ja")) return "ja";
+  return bases.find(isLang) ?? "ja";
 }
 
 export function currentLang(): Lang {
@@ -459,11 +472,29 @@ export function currentLang(): Lang {
 export function setLang(next: Lang): void {
   lang = next;
   document.documentElement.lang = next === "zh" ? "zh-CN" : "ja";
+}
+
+export function chooseLang(next: Lang): void {
   try {
-    localStorage.setItem("cc-lemon:lang", next);
+    localStorage.setItem(SHARED_KEY, next);
   } catch {
     // not saved; the choice still applies for this visit
   }
+  setLang(next);
+}
+
+/** Follows choices made in other tabs and, until the player picks one, the browser's language. */
+export function watchLang(onChange: (next: Lang) => void): void {
+  const update = () => {
+    const next = detect();
+    if (next !== lang) onChange(next);
+  };
+  window.addEventListener("storage", (e) => {
+    if (e.key === SHARED_KEY || e.key === null) update();
+  });
+  window.addEventListener("languagechange", () => {
+    if (!chosen()) update();
+  });
 }
 
 /** Looks up a string and fills `%d` / `%s` placeholders in order. */

@@ -7,7 +7,7 @@ import { type Character, CHARACTERS, characterById, isUnlocked } from "../core/c
 import { enemyFor, Run, tellVariety } from "../core/run";
 import { STRONG_HINT_AFTER, TUTORIAL_BPM, TUTORIAL_STEPS, type TutorialInput, type TutorialStep, TutorialTracker } from "../core/tutorial";
 import { type Consumable, type EffectReport, itemById } from "../core/items";
-import { currentLang, hasKey, setLang, t } from "../i18n";
+import { chooseLang, currentLang, hasKey, setLang, t, watchLang } from "../i18n";
 import { Hud, itemName } from "../view/hud";
 import { enemyName, personalityName, roundLabel, Screens } from "../view/screens";
 import {
@@ -85,6 +85,10 @@ export class App {
     void this.stage.enemy.setModel("character-female-b");
     void this.stage.scenery.rebuild(Date.now(), [idle, "character-female-b"], this.compact());
     this.applyLang();
+    watchLang((next) => {
+      setLang(next);
+      if (this.screens.onTitle) this.showTitle();
+    });
     window.addEventListener("keydown", (e) => this.key(e));
     this.showTitle();
   }
@@ -152,8 +156,7 @@ export class App {
       () => void this.unlockThen(() => this.screens.calibrate(this.clock, () => this.showTitle())),
       () => this.screens.howto(() => this.showTitle()),
       () => {
-        setLang(currentLang() === "ja" ? "zh" : "ja");
-        this.applyLang();
+        chooseLang(currentLang() === "ja" ? "zh" : "ja");
         this.showTitle();
       },
       () =>
