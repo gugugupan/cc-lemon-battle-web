@@ -17,7 +17,7 @@ import type { Rng } from "./rng";
 import { type ActionId, canAfford, costOf, type CostAdjust, type Fighter, type Grade, judge, mirrored, resolve, type RoundResult, type Winner, winnerOf } from "./rules";
 
 export const BEATS_PER_BAR = 4;
-/** The 「モン」 beat (0-based): the only beat an action is judged on. */
+/** The 「ケン」 beat (0-based): the only beat an action is judged on. */
 export const ACTION_BEAT = 3;
 export const FEVER_THRESHOLD = 10;
 export const MIN_BPM = 60;

@@ -37,7 +37,7 @@ const SPECIAL_TINT = { player: "#ffd43b", enemy: "#e64980" } as const;
 const TEMPO_SWAY_BARS = 4;
 const TEMPO_SWAY_STEP = 8;
 const TEMPO_SWAY_MAX = 16;
-/** Beat ticks stay audible under the music so the 「モン」 beat is still easy to hear. */
+/** Beat ticks stay audible under the music so the 「ケン」 beat is still easy to hear. */
 const MUSIC_TICK_LEVEL = 0.45;
 const TUTORIAL_DUMMY = "character-male-b";
 /** How long the confetti plays before the clear panel appears. */

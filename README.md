@@ -1,16 +1,16 @@
-# 🍋 CC Lemon Battle
+# 🍋 レモンパンチ / 柠檬猜拳 / Lemon Punch
 
 **▶ 在线游玩：https://gugugupan.github.io/cc-lemon-battle-web/**
 
 以手游戏「CCレモン」为原型的节奏对战 roguelike，浏览器直接玩（电脑键盘 / 手机触屏）。界面支持日文和中文。
 
-> A rhythm-battle roguelike based on the Japanese hand game "CC Lemon". Play it in the browser: https://gugugupan.github.io/cc-lemon-battle-web/
+> Lemon Punch — a rhythm-battle roguelike based on the Japanese hand game "CC Lemon". Play it in the browser: https://gugugupan.github.io/cc-lemon-battle-web/
 
 目标是**连赢 20 场**。每赢一场敌人就更强，HP 会带到下一场；用赢来的金币在小卖部买道具、开宝箱拿遗物，或者休息回血。通关后可以进入**无尽模式**继续挑战。
 
 ## 玩法
 
-- 每小节 4 拍「C・C・レ・モン」，**只在第 4 拍出招**：
+- 每小节 4 拍「レ・モン・ジャン・ケン」，**只在第 4 拍出招**：
   - → 攻击（-1 能量）
   - ← 防御
   - ↓ 蓄力（+1 能量）
@@ -64,4 +64,4 @@ tests/        vitest
 - 代码以 [MIT License](LICENSE) 发布。
 - 3D 模型来自 [Kenney](https://kenney.nl/) 的 [Mini Characters](https://kenney.nl/assets/mini-characters)、[Mini Forest](https://kenney.nl/assets/mini-forest)、[Mini Arcade](https://kenney.nl/assets/mini-arcade)、[Cube Pets](https://kenney.nl/assets/cube-pets)，均为 CC0 许可，许可文件放在 `public/models/` 下各自的文件夹里。
 - 字体从 Google Fonts 加载：M PLUS Rounded 1c、Noto Sans SC，均为 SIL OFL 许可。
-- 「CCレモン」是三得利（Suntory）的商标。本项目是粉丝制作的非商业作品，与三得利没有任何关系。
+- 「CCレモン」是三得利（Suntory）的商标。本项目只是以同名手游戏为原型的非商业作品，与三得利没有任何关系。

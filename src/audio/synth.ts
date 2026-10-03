@@ -21,7 +21,7 @@ export class Synth {
     this.master.gain.value = MASTER * v;
   }
 
-  /** One beat of the groove: kick on 1 and 3, hats between, a clap and bright ping on 「モン」. */
+  /** One beat of the groove: kick on 1 and 3, hats between, a clap and bright ping on 「ケン」. */
   /** Beat ticks (quieter when music plays); `groove` adds the built-in kick/hat for when there is no music. */
   beat(at: number, beatInBar: number, bar: BarSound, spb: number, groove: boolean, tickLevel = 1): void {
     const rest = bar === "rest";

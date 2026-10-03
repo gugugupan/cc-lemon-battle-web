@@ -49,7 +49,7 @@ interface Pet {
 }
 
 /**
- * The park around the arena: trees, rocks, fences, a CC Lemon vending machine, a few spectators
+ * The park around the arena: trees, rocks, fences, a vending machine, a few spectators
  * who react to the beat and the fight, and small animals wandering the edges. Rebuilt with a new
  * random layout for every fight.
  */
@@ -161,7 +161,7 @@ export class Scenery {
     this.group.clear();
   }
 
-  /** Crowd bobs on every beat; in FEVER everyone also jumps on 「モン」. */
+  /** Crowd bobs on every beat; in FEVER everyone also jumps on 「ケン」. */
   beat(beatInBar: number, rest: boolean): void {
     for (const s of this.spectators) s.hop = Math.max(s.hop, rest ? 0.4 : 0.7);
     for (const p of this.pets) if (p.hopsOnBeat) p.hop = Math.max(p.hop, 0.6);

@@ -972,6 +972,13 @@ i.lemon.empty {
   font-weight: 800;
 }
 
+.origin {
+  margin-top: 2px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  opacity: 0.8;
+}
+
 .best {
   display: inline-block;
   margin-top: 12px;

@@ -503,7 +503,7 @@ export class Stage {
     this.enemy.setColor(color);
   }
 
-  /** A beat as heard: everyone bounces, and 「モン」 punches the camera and flashes the ring. */
+  /** A beat as heard: everyone bounces, and 「ケン」 punches the camera and flashes the ring. */
   beat(beatInBar: number, rest: boolean): void {
     this.player.bounce();
     this.enemy.bounce();
