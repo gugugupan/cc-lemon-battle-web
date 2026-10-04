@@ -3,62 +3,90 @@ import { describe, expect, it, vi } from "vitest";
 vi.stubGlobal("navigator", { language: "ja" });
 vi.stubGlobal("localStorage", { getItem: () => null, setItem: () => {} });
 import { Battle, type BattleEvent } from "../src/core/battle";
+import { itemById } from "../src/core/items";
 import { Rng } from "../src/core/rng";
 import { enemyFor } from "../src/core/run";
-import { TUTORIAL_STEPS, TutorialTracker, type TutorialStep } from "../src/core/tutorial";
+import { TUTORIAL_RELICS, TUTORIAL_STEPS, TutorialTracker, type TutorialStep } from "../src/core/tutorial";
 import type { ActionId } from "../src/core/rules";
 
-function play(step: TutorialStep, presses: (ActionId | null)[]) {
+const fights = TUTORIAL_STEPS.filter((s) => s.goal === "win");
+
+function setup(step: TutorialStep, seed = 2) {
   const spec = enemyFor(1, new Rng(1));
   spec.relics = [];
   spec.tellChance = 0;
+  if (step.enemyHp !== undefined) spec.maxHp = step.enemyHp;
   const tracker = new TutorialTracker(step);
   const verdicts: string[] = [];
-  const battle = new Battle(spec, { hp: 5, maxHp: 5, relics: [], slots: [] }, new Rng(2), (e: BattleEvent) => {
+  const enemyMoves: ActionId[] = [];
+  const battle = new Battle(spec, { hp: 5, maxHp: 5, relics: [], slots: [] }, new Rng(seed), (e: BattleEvent) => {
+    if (e.type === "reveal" && !e.result.enemy.whiffed) enemyMoves.push(e.result.enemy.action);
     const v = tracker.onEvent(e);
     if (v) verdicts.push(v);
-  }, { restBars: false, enemyScript: step.enemy, noDefeat: true });
+  }, { restBars: false, enemyScript: step.enemy });
   battle.start();
-  if (step.playerEnergy !== undefined) battle.player.energy = step.playerEnergy;
-  let press = 0;
-  for (let beat = 0; beat < 40 && press <= presses.length; beat++) {
-    if (beat % 4 === 0 && step.enemyEnergy !== undefined) battle.enemy.energy = step.enemyEnergy;
-    battle.onBeat(beat);
-    if (beat % 4 === 3 && beat > 3) {
-      const a = presses[press++];
-      if (a) battle.pressAction(a, beat, 0.75);
-    }
-    battle.onOffbeat(beat);
-  }
-  return verdicts;
+  battle.player.energy = 0;
+  return { battle, verdicts, enemyMoves };
 }
 
-const step = (goal: string) => TUTORIAL_STEPS.find((s) => s.goal === goal)!;
+/** Plays bars after the count-in; `choose` picks the press for each bar (null waits). */
+function play(step: TutorialStep, choose: (battle: Battle, bar: number) => ActionId | null, bars = 40, seed = 2) {
+  const run = setup(step, seed);
+  for (let beat = 0; beat < bars * 4 && !run.battle.finished; beat++) {
+    run.battle.onBeat(beat);
+    if (beat % 4 === 3 && beat > 3) {
+      const a = choose(run.battle, Math.floor(beat / 4));
+      if (a) run.battle.pressAction(a, beat, 0.75);
+    }
+    run.battle.onOffbeat(beat);
+  }
+  return run;
+}
 
-describe("tutorial tracker", () => {
-  it("charge lesson passes on a charge and fails on anything else", () => {
-    expect(play(step("action"), ["charge"])[0]).toBe("success");
-    expect(play(step("action"), ["guard"])[0]).toBe("fail");
-    expect(play(step("action"), [null])[0]).toBe("fail");
+const chargeThenAttack = (b: Battle) => (b.player.energy > 0 ? "attack" : "charge");
+
+describe("tutorial fights", () => {
+  it("five fights, each teaching one more input, the last a boss with a relic pick", () => {
+    expect(fights).toHaveLength(5);
+    expect(fights.map((s) => s.allowed.length)).toEqual([2, 3, 4, 5, 5]);
+    expect(fights[0].allowed).toEqual(["charge", "attack"]);
+    expect(fights[1].allowed).toContain("guard");
+    expect(fights[2].allowed).toContain("special");
+    expect(fights[3].allowed).toContain("item");
+    expect(fights[3].items?.length).toBeGreaterThan(0);
+    expect(fights[4]).toMatchObject({ boss: true, relicPick: true });
+    expect(fights[4].enemy).toBeUndefined();
   });
 
-  it("attack lesson needs a hit on the charging dummy", () => {
-    expect(play(step("hit"), ["attack"])[0]).toBe("success");
+  it("fight 1: the dummy only charges, so charge → attack wins", () => {
+    const { verdicts, enemyMoves } = play(fights[0], chargeThenAttack);
+    expect(verdicts).toEqual(["success"]);
+    expect(new Set(enemyMoves)).toEqual(new Set(["charge"]));
   });
 
-  it("guard lesson needs the attack blocked", () => {
-    expect(play(step("guarded"), ["guard"])[0]).toBe("success");
-    expect(play(step("guarded"), ["charge"])[0]).toBe("fail");
+  it("fight 2: the dummy charges and attacks", () => {
+    const { enemyMoves } = play(fights[1], () => "guard", 30);
+    expect(new Set(enemyMoves)).toEqual(new Set(["charge", "attack"]));
   });
 
-  it("special lesson lets you charge first, then needs the guard broken", () => {
-    expect(play(step("guardBreak"), ["charge", "special"])[0]).toBe("success");
-    expect(play(step("guardBreak"), ["attack"])[0]).toBe("fail");
+  it("fight 3: the dummy also guards", () => {
+    const { enemyMoves } = play(fights[2], () => "guard", 30);
+    expect(enemyMoves).toContain("guard");
   });
 
-  it("wait lesson passes on an empty bar and fails on a press", () => {
-    expect(play(step("wait"), [null])[0]).toBe("success");
-    expect(play(step("wait"), ["guard"])[0]).toBe("fail");
+  it("a lost fight is a fail", () => {
+    const { verdicts } = play(fights[1], () => "charge", 80);
+    expect(verdicts).toEqual(["fail"]);
+  });
+
+  it("the beat step passes after watching its bars", () => {
+    const watch = TUTORIAL_STEPS.find((s) => s.goal === "watch")!;
+    expect(play(watch, () => null, 3).verdicts).toEqual([]);
+    expect(play(watch, () => null, 6).verdicts[0]).toBe("success");
+  });
+
+  it("the boss's relic offer is made of real player relics", () => {
+    for (const id of TUTORIAL_RELICS) expect(itemById(id).kind).toBe("relic");
   });
 
   it("every line and hint has text", async () => {
@@ -66,5 +94,6 @@ describe("tutorial tracker", () => {
     for (const s of TUTORIAL_STEPS) {
       for (const key of [...s.lines, ...(s.hint ? [s.hint] : [])]) expect(hasKey(key), key).toBe(true);
     }
+    expect(hasKey("tut_pick")).toBe(true);
   });
 });

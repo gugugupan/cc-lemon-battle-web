@@ -57,10 +57,8 @@ export interface BattleOptions {
    * (the tea break relic turns rest bars on).
    */
   restBars: boolean;
-  /** Tutorial: the enemy always plays this move (if it can pay; otherwise it charges). */
-  enemyScript?: ActionId;
-  /** Tutorial: nobody can drop below 1 HP, so the fight never ends. */
-  noDefeat?: boolean;
+  /** Tutorial: the enemy picks one of these it can pay for every bar (charging if it can pay for none). */
+  enemyScript?: ActionId[];
 }
 
 export interface Loadout {
@@ -379,7 +377,10 @@ export class Battle {
 
   private decideEnemy(): ActionId {
     const script = this.options.enemyScript;
-    if (script) return canAfford(this.enemy, script) ? script : "charge";
+    if (script) {
+      const options = script.filter((a) => canAfford(this.enemy, a));
+      return options.length > 0 ? this.rng.pick(options) : "charge";
+    }
     return decide(this.enemy, this.player, this.playerHistory, this.ai, this.rng, { lastHit: this.enemyLastHit, lastGuarded: this.enemyLastGuarded });
   }
 
@@ -444,11 +445,6 @@ export class Battle {
 
   private checkWinner(): void {
     if (this.finished) return;
-    if (this.options.noDefeat) {
-      this.player.hp = Math.max(1, this.player.hp);
-      this.enemy.hp = Math.max(1, this.enemy.hp);
-      return;
-    }
     const w = winnerOf(this.player, this.enemy);
     if (w === null) return this.checkSerious();
     this.winner = w;

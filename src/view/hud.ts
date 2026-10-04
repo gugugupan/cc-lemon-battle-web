@@ -315,11 +315,19 @@ export class Hud {
     }
   }
 
-  /** Highlights one pad button, the item slots, the beat dots, or nothing. */
-  focus(target: ActionId | "slots" | "beat" | null): void {
-    for (const [action, button] of this.pad) button.classList.toggle("tut-focus", target === action);
-    this.slots.classList.toggle("tut-focus", target === "slots");
-    this.beatPips.classList.toggle("tut-focus", target === "beat");
+  /** Highlights pad buttons, the item slots and/or the beat dots. */
+  focus(targets: readonly (ActionId | "slots" | "beat")[]): void {
+    for (const [action, button] of this.pad) button.classList.toggle("tut-focus", targets.includes(action));
+    this.slots.classList.toggle("tut-focus", targets.includes("slots"));
+    this.beatPips.classList.toggle("tut-focus", targets.includes("beat"));
+  }
+
+  /** Tutorial: hides the pad buttons (and item slots) not taught yet; null shows everything. */
+  setAvailable(inputs: readonly (ActionId | "item")[] | null): void {
+    for (const [action, button] of this.pad) button.classList.toggle("tut-off", inputs !== null && !inputs.includes(action));
+    const noItems = inputs !== null && !inputs.includes("item");
+    this.slots.classList.toggle("tut-off", noItems);
+    this.slotsLabel.classList.toggle("tut-off", noItems);
   }
 
   setRoundText(text: string): void {

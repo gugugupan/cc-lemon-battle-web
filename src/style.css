@@ -2629,6 +2629,12 @@ i.lemon.empty {
   }
 }
 
+.pad-btn.tut-off,
+.slots.tut-off,
+.hud-label.tut-off {
+  visibility: hidden;
+}
+
 .pad-btn.tut-focus,
 .slots.tut-focus .slot {
   animation: tut-pulse 0.9s ease-in-out infinite;

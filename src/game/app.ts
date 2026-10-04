@@ -1,12 +1,12 @@
 import { BeatClock } from "../audio/clock";
 import { MusicPlayer, STYLES, type StyleId } from "../audio/music";
-import { Battle, type BattleEvent, MAX_BPM, MIN_BPM } from "../core/battle";
+import { Battle, type BattleEvent, FEVER_THRESHOLD, MAX_BPM, MIN_BPM } from "../core/battle";
 import { Rng } from "../core/rng";
 import type { ActionId, RoundResult } from "../core/rules";
 import { type Character, CHARACTERS, characterById, isUnlocked } from "../core/characters";
-import { enemyFor, Run, tellVariety } from "../core/run";
-import { STRONG_HINT_AFTER, TUTORIAL_BPM, TUTORIAL_STEPS, type TutorialInput, type TutorialStep, TutorialTracker } from "../core/tutorial";
-import { type Consumable, type EffectReport, itemById } from "../core/items";
+import { BOSS_COLOR, BOSS_MODEL, enemyFor, RELIC_PICK_SIZE, Run, tellVariety } from "../core/run";
+import { TUTORIAL_BPM, TUTORIAL_PLAYER_HP, TUTORIAL_RELICS, TUTORIAL_STEPS, type TutorialInput, TutorialTracker } from "../core/tutorial";
+import { type Consumable, type EffectReport, itemById, type Relic } from "../core/items";
 import { chooseLang, currentLang, hasKey, setLang, t, watchLang } from "../i18n";
 import { Hud, itemName } from "../view/hud";
 import { enemyName, personalityName, roundLabel, Screens } from "../view/screens";
@@ -61,7 +61,7 @@ export class App {
   private character: Character = characterById(this.lastCharacter);
   /** Characters unlocked so far, to announce new ones. */
   private known = new Set(this.unlockedIds());
-  private tut: { index: number; line: number; tracker: TutorialTracker | null; fails: number; practicing: boolean; exitArmed: number } | null = null;
+  private tut: { index: number; line: number; tracker: TutorialTracker | null; practicing: boolean; exitArmed: number; relic: Relic | null } | null = null;
   private idle = 0;
   private paused = false;
 
@@ -310,16 +310,21 @@ export class App {
     this.screens.hide();
     this.run = null;
     this.battle = null;
-    this.tut = { index: 0, line: 0, tracker: null, fails: 0, practicing: false, exitArmed: 0 };
+    this.tut = { index: 0, line: 0, tracker: null, practicing: false, exitArmed: 0, relic: null };
     this.stage.player.setSilhouette(false);
     void this.stage.player.setModel(this.character.model);
-    void this.stage.enemy.setModel(TUTORIAL_DUMMY);
-    this.stage.setEnemyColor("#b0b0b0");
+    this.showTutorialFoe(false);
     void this.stage.scenery.rebuild(7, [this.character.model, TUTORIAL_DUMMY], this.compact());
     this.hud.show(true);
     this.hud.setTutorial(true);
     this.hud.setRoundText(t("tutorial"));
     this.showTutorialStep();
+  }
+
+  /** The practice dummy, or レモン仙人 himself for the boss fight. */
+  private showTutorialFoe(boss: boolean): void {
+    void this.stage.enemy.setModel(boss ? BOSS_MODEL : TUTORIAL_DUMMY);
+    this.stage.setEnemyColor(boss ? BOSS_COLOR : "#b0b0b0");
   }
 
   private showTutorialStep(): void {
@@ -330,14 +335,21 @@ export class App {
     tut.practicing = false;
     tut.tracker = null;
     this.hud.hint(null);
-    this.hud.focus(null);
+    this.hud.focus([]);
+    this.hud.setAvailable(step.allowed);
+    this.stage.setFever(false);
+    this.hud.setCombo(0, FEVER_THRESHOLD, false);
+    if (step.boss) {
+      this.showTutorialFoe(true);
+      this.hud.setNames(t("tut_sennin"), t("bossTag"), BOSS_COLOR);
+    }
     this.hud.dialogue(this.tutText(step.lines[0]));
   }
 
   /** Enter during the guide's lines: next line, then practice (or the next step). */
   private advanceTutorial(): void {
     const tut = this.tut!;
-    if (tut.practicing) return;
+    if (tut.practicing || this.screens.open) return;
     const step = TUTORIAL_STEPS[tut.index];
     if (tut.line < step.lines.length - 1) {
       tut.line++;
@@ -347,84 +359,86 @@ export class App {
     }
     this.hud.dialogue(null);
     if (step.goal === "confirm") this.nextTutorialStep();
+    else if (step.relicPick && !tut.relic) this.pickTutorialRelic();
     else this.startTutorialPractice();
+  }
+
+  /** The boss's gift: one of three relics, the same pick a chest gives in a run. */
+  private pickTutorialRelic(): void {
+    const tut = this.tut!;
+    const offer = new Rng().shuffle(TUTORIAL_RELICS).slice(0, RELIC_PICK_SIZE).map((id) => itemById(id) as Relic);
+    this.screens.chest(offer, t("tut_pick"), (i) => {
+      if (this.tut !== tut) return;
+      tut.relic = offer[i];
+      this.screens.hide();
+      this.startTutorialPractice();
+    });
   }
 
   private nextTutorialStep(): void {
     const tut = this.tut!;
     tut.index++;
-    if (tut.index >= TUTORIAL_STEPS.length) {
-      saveTutorialDone();
-      this.tut = null;
-      this.hud.dialogue(null);
-      this.hud.hint(null);
-      this.hud.focus(null);
-      this.hud.setTutorial(false);
-      this.showTitle();
-      return;
-    }
-    this.showTutorialStep();
+    if (tut.index < TUTORIAL_STEPS.length) return this.showTutorialStep();
+    saveTutorialDone();
+    this.closeTutorial();
+    this.startRun();
   }
 
   private startTutorialPractice(): void {
     const tut = this.tut!;
     const step = TUTORIAL_STEPS[tut.index];
-    const fight = step.goal === "win";
-    const spec = enemyFor(1, new Rng(tut.index + 1), this.character.model);
+    const spec = enemyFor(step.boss ? 3 : 1, new Rng(tut.index + 1), this.character.model);
     spec.relics = [];
-    spec.model = TUTORIAL_DUMMY;
-    if (!fight) {
-      spec.maxHp = 5;
-      spec.tellChance = step.honestTells ? 1 : 0;
+    if (step.enemyHp !== undefined) spec.maxHp = step.enemyHp;
+    if (step.boss) {
+      spec.model = BOSS_MODEL;
+      spec.color = BOSS_COLOR;
+      spec.personality = "reader";
+      spec.elite = true;
+      spec.boss = { relics: [itemById("power_bank") as Relic], bpmAdd: 10, ai: { ...spec.ai, aggression: spec.ai.aggression * 1.1 } };
+    } else {
+      spec.model = TUTORIAL_DUMMY;
+      spec.tellChance = step.tellChance ?? 0;
       spec.tellAccuracy = 1;
     }
     const slots: (Consumable | null)[] = [null, null, null, null];
-    if (step.item) slots[0] = itemById(step.item) as Consumable;
-    if (fight) slots.splice(0, 2, itemById("bandage") as Consumable, itemById("lemon_bomb") as Consumable);
-    const battle = new Battle(spec, { hp: 5, maxHp: 5, relics: [], slots }, new Rng(), (e) => this.onEvent(e), {
+    step.items?.forEach((id, i) => (slots[i] = itemById(id) as Consumable));
+    const relics = step.relicPick && tut.relic ? [tut.relic] : [];
+    const battle = new Battle(spec, { hp: TUTORIAL_PLAYER_HP, maxHp: TUTORIAL_PLAYER_HP, relics, slots }, new Rng(), (e) => this.onEvent(e), {
       restBars: false,
       enemyScript: step.enemy,
-      noDefeat: !fight,
     });
-    if (step.playerEnergy !== undefined) battle.player.energy = step.playerEnergy;
+    battle.player.energy = 0;
     tut.tracker = new TutorialTracker(step);
-    tut.fails = 0;
     tut.practicing = true;
     this.hud.hint(this.tutText(step.hint));
-    this.hud.focus(step.focus ?? null);
-    this.mountBattle(battle, fight ? enemyName(spec) : t("tut_dummy"), "", t("tutorial"), TUTORIAL_BPM);
+    this.hud.focus(step.focus ?? []);
+    this.hud.setAvailable(step.allowed);
+    this.mountBattle(battle, step.boss ? t("tut_sennin") : t("tut_dummy"), step.boss ? t("bossTag") : "", t("tutorial"), TUTORIAL_BPM);
   }
 
   /** Runs every battle event through the current step's goal. */
   private tutorialEvent(e: BattleEvent): void {
     const tut = this.tut;
-    const battle = this.battle;
-    if (!tut?.practicing || !tut.tracker || !battle) return;
-    const step = TUTORIAL_STEPS[tut.index];
-    if (e.type === "beat" && e.beat === 0 && !e.rest && step.enemyEnergy !== undefined) battle.enemy.energy = step.enemyEnergy;
+    if (!tut?.practicing || !tut.tracker || !this.battle) return;
     const verdict = tut.tracker.onEvent(e);
+    if (!verdict) return;
+    tut.practicing = false;
     if (verdict === "success") {
-      tut.practicing = false;
       const at = this.stage.project(this.stage.cardMeet());
       this.hud.popup(t("tut_good"), at.x, at.y - 60, "outcome");
       this.clock.synth.win();
-      window.setTimeout(() => this.nextTutorialStep(), 1300);
-    } else if (verdict === "fail") {
-      this.tutorialFail(step);
-    }
-  }
-
-  private tutorialFail(step: TutorialStep): void {
-    const tut = this.tut!;
-    if (step.goal === "win") {
-      tut.practicing = false;
-      this.stopBeat();
-      this.hud.dialogue(t("tut_fight_lost"));
-      tut.line = step.lines.length - 1;
+      window.setTimeout(() => this.tut === tut && this.nextTutorialStep(), END_DELAY_MS);
       return;
     }
-    tut.fails++;
-    if (tut.fails >= STRONG_HINT_AFTER) this.hud.hint(`${this.tutText(step.hint)}　${t("tut_strong")}`, true);
+    window.setTimeout(() => {
+      if (this.tut !== tut) return;
+      this.stopBeat();
+      this.hud.hint(null);
+      this.hud.focus([]);
+      this.hud.dialogue(t("tut_fight_lost"));
+      tut.line = TUTORIAL_STEPS[tut.index].lines.length - 1;
+    }, END_DELAY_MS);
   }
 
   /** Blocks inputs the current step doesn't teach. Returns true when the press may go through. */
@@ -436,7 +450,6 @@ export class App {
     if (step.allowed.includes(input)) return true;
     this.hud.hint(t("tut_blocked"), true);
     window.setTimeout(() => tut.practicing && this.hud.hint(this.tutText(step.hint)), 900);
-    if (step.goal === "wait") this.tutorialFail(step);
     return false;
   }
 
@@ -457,12 +470,17 @@ export class App {
   }
 
   private leaveTutorial(): void {
+    this.closeTutorial();
+    this.showTitle();
+  }
+
+  private closeTutorial(): void {
     this.tut = null;
     this.hud.dialogue(null);
     this.hud.hint(null);
-    this.hud.focus(null);
+    this.hud.focus([]);
+    this.hud.setAvailable(null);
     this.hud.setTutorial(false);
-    this.showTitle();
   }
 
   private act(action: ActionId, event: { timeStamp: number }): void {
