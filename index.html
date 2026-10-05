@@ -5,9 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
     <meta name="theme-color" content="#5cc8ff" />
     <title>レモンパンチ | Lemon Punch</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800;900&family=Noto+Sans+SC:wght@500;700;900&display=swap" rel="stylesheet" />
+    <meta name="description" content="4拍目の「ケン」で技を出せ。20連勝をめざすリズム対戦ローグライク。Strike on the 4th beat — a rhythm-battle roguelike. Can you win 20 in a row?" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="レモンパンチ · 柠檬猜拳 · Lemon Punch" />
+    <meta property="og:description" content="4拍目の「ケン」で技を出せ。20連勝をめざすリズム対戦ローグライク。" />
+    <meta property="og:image" content="%VITE_SITE_URL%og-image.jpg" />
+    <meta property="og:url" content="%VITE_SITE_URL%" />
+    <meta name="twitter:card" content="summary_large_image" />
     <style>
       #splash {
         position: fixed;
@@ -36,14 +40,15 @@
       }
     </style>
     <script>
-      if (location.hostname === "gugugupan.github.io") {
+      var gaId = "%VITE_GA_ID%";
+      if (gaId && location.href.indexOf("%VITE_SITE_URL%") === 0) {
         window.dataLayer = window.dataLayer || [];
         window.gtag = function () { dataLayer.push(arguments); };
         gtag("js", new Date());
-        gtag("config", "G-8J5VSLTX1B");
+        gtag("config", gaId);
         var ga = document.createElement("script");
         ga.async = true;
-        ga.src = "https://www.googletagmanager.com/gtag/js?id=G-8J5VSLTX1B";
+        ga.src = "https://www.googletagmanager.com/gtag/js?id=" + gaId;
         document.head.appendChild(ga);
       }
     </script>

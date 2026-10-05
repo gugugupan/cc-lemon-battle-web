@@ -1,10 +1,10 @@
 # 🍋 レモンパンチ / 柠檬猜拳 / Lemon Punch
 
-**▶ 在线游玩：https://gugugupan.github.io/cc-lemon-battle-web/**
+**▶ 在线游玩：https://lemon-punch.gratin-game.com/**
 
 以手游戏「CCレモン」为原型的节奏对战 roguelike，浏览器直接玩（电脑键盘 / 手机触屏）。界面支持日文和中文。
 
-> Lemon Punch — a rhythm-battle roguelike based on the Japanese hand game "CC Lemon". Play it in the browser: https://gugugupan.github.io/cc-lemon-battle-web/
+> Lemon Punch — a rhythm-battle roguelike based on the Japanese hand game "CC Lemon". Play it in the browser: https://lemon-punch.gratin-game.com/
 
 目标是**连赢 20 场**。每赢一场敌人就更强，HP 会带到下一场；用赢来的金币在小卖部买道具、开宝箱拿遗物，或者休息回血。通关后可以进入**无尽模式**继续挑战。
 

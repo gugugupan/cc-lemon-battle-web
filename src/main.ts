@@ -1,3 +1,4 @@
+void import("./fonts");
 import "./style.css";
 
 /** The game (three.js and all) loads after the splash in index.html is on screen. */
